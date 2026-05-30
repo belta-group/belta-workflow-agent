@@ -1,0 +1,24 @@
+{
+  "name": "belta-workflow-agent",
+  "owner": {
+    "name": "belta-group"
+  },
+  "metadata": {
+    "description": "Belta 社内向けワークフロー自動化エージェント。Notion / Slack / GitHub / Google Drive を MCP で接続し、業務発話から最適ツールに分岐する。"
+  },
+  "plugins": [
+    {
+      "name": "workflow",
+      "source": "./plugins/workflow",
+      "description": "/workflow で 5 問オンボーディング → Notion スキーマ設計・MCP 4 ツール連携・PII 検知・自動ルール化までを束ねる Belta 業務エージェント。",
+      "version": "0.1.0",
+      "author": {
+        "name": "belta-group"
+      },
+      "repository": "https://github.com/belta-group/belta-workflow-agent",
+      "license": "UNLICENSED",
+      "category": "productivity",
+      "tags": ["belta", "workflow", "notion", "slack", "github", "gdrive", "mcp"]
+    }
+  ]
+}

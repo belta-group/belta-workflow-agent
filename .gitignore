@@ -1,0 +1,25 @@
+# ─────────────────────────────────────────────
+# Belta ユーザー個人データ（漏洩防止：物理除外）
+# ─────────────────────────────────────────────
+# .belta/ 配下にプロファイル / notes / inbox / todos / rules / audit が入る
+.belta/
+
+# ホーム配下に保存されるユーザー秘密情報の万一の混入対策
+secrets.env
+*-credentials.json
+oauth-token.*
+
+# OS / エディタ
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+
+# ノードモジュール（将来 packages/ 配下で使う場合）
+node_modules/
+
+# ローカル Claude Code 設定（プロジェクト固有のキャッシュ等）
+.claude/
