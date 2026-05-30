@@ -79,10 +79,11 @@ Step 1 で選んだツールのみ案内すればよい。
 | Notion | claude.ai Connector OAuth | claude.ai → Settings → Connectors → Notion を認可 | `/mcp` で列挙確認 |
 | Slack | claude.ai Connector OAuth | claude.ai → Settings → Connectors → Slack を認可 | `/mcp` で列挙確認 |
 | Google Drive | claude.ai Connector OAuth | claude.ai → Settings → Connectors → Google Drive を認可 | `/mcp` で列挙確認 |
-| GitHub | `gh` CLI device flow OAuth | `gh auth login --web` を 1 コマンド実行 | `gh auth status` で `Logged in to github.com` を確認 |
+| GitHub | `gh` CLI device flow OAuth | `node "${CLAUDE_PLUGIN_ROOT}/scripts/ensure-gh.js"` で導入確認・自動導入 → `gh auth login --web` を 1 コマンド実行 | `gh auth status` で `Logged in to github.com` を確認 |
 
 - **前提**: claude.ai の Max / Team / Enterprise プラン契約済み。
 - GitHub のみ MCP サーバを置かず `gh` CLI を Bash 経由で直接利用する（監査経路の一元化 + 操作の最小化）。
+- `gh` 未導入なら、まず `node "${CLAUDE_PLUGIN_ROOT}/scripts/ensure-gh.js"` を実行する。OS 標準パッケージマネージャ（macOS: Homebrew / Windows: winget）で自動導入を試み、結果を JSON（`ok` / `installed` / `message`）で返す。導入済みなら何もしない冪等動作。自動導入できない環境では `message` の手動導入手順を案内する。
 - ブラウザ操作系が未インストールの場合はその旨を案内する。
 
 ### Step 4. permission allowlist の適用（フォールバック）

@@ -72,7 +72,16 @@ Belta ワークフローエージェントが連携する 4 ツール（Notion /
 
 ### GitHub（`gh` CLI device flow OAuth）
 
-MCP ではなくローカル `gh` CLI を使う。`gh` 未導入なら先にインストールする（macOS: `brew install gh` / Windows: `winget install GitHub.cli` または公式インストーラ）。
+MCP ではなくローカル `gh` CLI を使う。**`gh` の導入確認と自動導入は同梱ヘルパーに任せる**（OS 分岐を内包した Node.js 単一実装。macOS: Homebrew / Windows: winget）。まず次を実行する：
+
+```
+node "${CLAUDE_PLUGIN_ROOT}/scripts/ensure-gh.js"
+```
+
+- 導入済みなら何もせず `installed: true` を返す。未導入なら OS 標準のパッケージマネージャで自動導入を試み、結果を JSON で返す。
+- パッケージマネージャ不在・非対応 OS のときは自動実行せず、手動導入手順（https://cli.github.com）を `message` に入れて返す。終了コードは常に 0 なので、JSON の `ok` / `installed` で判断する。
+
+`gh` が使えるようになったら認証する：
 
 1. ターミナルで次を実行:
 

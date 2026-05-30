@@ -69,7 +69,7 @@ trigger: /workflow
 | **Notion** | claude.ai Connector OAuth | claude.ai → Settings → Connectors → Notion を認可 |
 | **Slack** | claude.ai Connector OAuth | claude.ai → Settings → Connectors → Slack を認可 |
 | **Google Drive** | claude.ai Connector OAuth | claude.ai → Settings → Connectors → Google Drive を認可 |
-| **GitHub** | `gh` CLI device flow OAuth | ターミナルで `gh auth login --web` を 1 回実行 |
+| **GitHub** | `gh` CLI device flow OAuth | `node "${CLAUDE_PLUGIN_ROOT}/scripts/ensure-gh.js"`（未導入なら自動導入）→ `gh auth login --web` を 1 回実行 |
 
 > **前提**: claude.ai の Max / Team / Enterprise プラン契約済み。GitHub のみローカル MCP を置かず `gh` CLI を Bash 経由で直接呼ぶ（監査経路の一元化 + 操作の最小化）。
 

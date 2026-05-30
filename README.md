@@ -59,7 +59,7 @@
 | Notion | claude.ai の設定画面 → Connectors → Notion を「許可」 |
 | Slack | claude.ai の設定画面 → Connectors → Slack を「許可」 |
 | Google Drive | claude.ai の設定画面 → Connectors → Google Drive を「許可」 |
-| GitHub | `gh auth login --web` というコマンドを 1 回実行 |
+| GitHub | `gh auth login --web` というコマンドを 1 回実行（GitHub 用の小さな道具 `gh` が未導入でも、セットアップが自動で入れてくれます） |
 
 > **必要なもの**：claude.ai の Max / Team / Enterprise いずれかの契約（本リポジトリは Max 契約を前提に作られています）。
 
@@ -122,6 +122,10 @@ belta-workflow-agent/
 │           └── token-usage.js     ← トークン使用量ログ（Stop、~/.belta/audit/tokens/ に集計。Node.js / Mac・Windows 両対応）
 ├── .gitleaks.toml
 ├── .github/workflows/secret-scan.yml
+├── plugins/workflow/scripts/
+│   ├── belta-init.js             ← ~/.belta/ 初期化 + config.yaml 管理（Node.js / Mac・Windows 両対応）
+│   ├── apply-permissions.js      ← permission allowlist の冪等マージ（フォールバック）
+│   └── ensure-gh.js              ← gh CLI 導入確認・自動導入（macOS: brew / Windows: winget。Node.js 単一実装）
 ├── scripts/
 │   └── aggregate-token-usage.js  ← トークン使用量の集計（Phase 0 実測データ用。--md / --json 出力）
 └── docs/
@@ -147,6 +151,14 @@ belta-workflow-agent/
 4. 情シス推進担当へ報告 + `~/.belta/audit/` にインシデント記録
 
 ## ドキュメント
+
+利用者向けの詳しいガイド（導入・接続・使い方・セキュリティ）は、以下の公開サイトにまとまっています。
+
+- **利用ガイド（Web サイト）**: https://belta-group.github.io/belta-workflow-agent/
+
+> ⚠️ 本サイトは**社外秘情報を含む**ため `noindex` 設定済みですが、標準プランの GitHub Pages は URL を知っていれば閲覧可能です。共有範囲にご注意ください（公開可否は Settings → Pages の設定に依存。[.github/workflows/docs.yml](.github/workflows/docs.yml) のコメント参照）。
+
+担当者向けの内部ドキュメント:
 
 - 背景と目的: [docs/background.md](docs/background.md)
 - 実装チェックリスト: [docs/tasks.md](docs/tasks.md)
