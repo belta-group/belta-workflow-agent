@@ -5,6 +5,9 @@ hero:
   name: Belta ワークフローエージェント
   text: 話しかけるだけ。あとは秘書がやってくれる
   tagline: Notion・Slack・GitHub・Google Drive を使い分ける「あなた専用の秘書」。どのアプリを開くかを考えなくてよくなり、使うほどあなたに合わせて賢くなります。
+  image:
+    src: /logo.png
+    alt: 4 つのアプリ（Notion・Slack・GitHub・Google Drive）を使い分ける、あなた専用の秘書のイラスト
   actions:
     - theme: brand
       text: まず使い始める（約 5 分）

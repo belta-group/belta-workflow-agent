@@ -1,0 +1,45 @@
+# Dependabot 設定: 依存パッケージの更新 PR を自動作成する。
+# 対象は (1) docs/ の npm 依存（VitePress）と (2) GitHub Actions のバージョン。
+# 詳細: https://docs.github.com/code-security/dependabot/dependabot-version-updates
+version: 2
+updates:
+  # (1) ドキュメントサイト（VitePress）の npm 依存
+  - package-ecosystem: "npm"
+    directory: "/docs"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+    labels:
+      - "dependencies"
+    groups:
+      # パッチ・マイナーはまとめて 1 PR に集約しレビュー負荷を下げる
+      docs-minor-patch:
+        update-types:
+          - "minor"
+          - "patch"
+
+  # (2) GitHub Actions（actions/checkout, setup-node, gitleaks-action 等）
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Tokyo"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "ci"
+      include: "scope"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    groups:
+      actions-all:
+        patterns:
+          - "*"

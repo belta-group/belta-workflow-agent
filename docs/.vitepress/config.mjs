@@ -19,9 +19,46 @@ export default defineConfig({
   lastUpdated: true,
   ignoreDeadLinks: 'localhostLinks',
 
-  head: [['meta', { name: 'robots', content: 'noindex, nofollow' }]],
+  head: [
+    ['meta', { name: 'robots', content: 'noindex, nofollow' }],
+    // ファビコン（ブラウザのタブに出る小さなロゴ）。head は base を自動付与しないため明示する。
+    ['link', { rel: 'icon', type: 'image/png', href: `${base}logo.png` }]
+  ],
 
   themeConfig: {
+    // ナビゲーションバー左上のロゴ（base はテーマ側が自動付与するため先頭 / 始まりでよい）。
+    logo: '/logo.png',
+
+    // ページ内全文検索。VitePress 同梱のローカル検索（MiniSearch）を使う。
+    // 外部サービス・追加依存なしでビルド時にインデックスを生成するため、
+    // Mac / Windows どちらの環境でも同じように動作する（社外秘情報も外部へ出ない）。
+    search: {
+      provider: 'local',
+      options: {
+        translations: {
+          button: {
+            buttonText: '検索',
+            buttonAriaLabel: '検索'
+          },
+          modal: {
+            displayDetails: '詳細を表示',
+            resetButtonTitle: '検索条件をリセット',
+            backButtonTitle: '検索を閉じる',
+            noResultsText: '見つかりませんでした：',
+            footer: {
+              selectText: '選択',
+              selectKeyAriaLabel: 'enter',
+              navigateText: '移動',
+              navigateUpKeyAriaLabel: '上矢印',
+              navigateDownKeyAriaLabel: '下矢印',
+              closeText: '閉じる',
+              closeKeyAriaLabel: 'esc'
+            }
+          }
+        }
+      }
+    },
+
     nav: [
       { text: 'ホーム', link: '/' },
       { text: '利用ガイド', link: '/guide/getting-started' },

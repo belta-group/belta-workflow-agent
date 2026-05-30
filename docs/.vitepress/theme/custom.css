@@ -1,0 +1,158 @@
+/*
+ * EC-BELTA デザインシステムを VitePress 既定テーマへ反映するスタイル上書き。
+ *
+ * 値の出どころは EC-BELTA デザインシステム（カラー / タイポ / 余白 / トランジション）。
+ * 一次資料は EC-BELTA リポジトリの `app/assets/scss/**`（_variables.scss / _colors.scss）であり、
+ * そちらが「正」。値が食い違ったら SCSS 側を起点に直し、本ファイルは事後同期する。
+ *
+ * クロスプラットフォーム方針: 外部 Web フォントを @import しない（社内 noindex サイトのため
+ * 外部リクエストを発生させず、Mac / Windows どちらでも端末にあるフォントへフォールバックする）。
+ */
+
+/* ===========================================================================
+ * 1. カラートークン
+ *
+ * EC-BELTA: Primary #d76492 / Secondary #d97da2 / Tertiary #f6e4eb / Text base #3d3d3d
+ *           Caution #e40101 / CTA(緑) #4fac3e
+ *
+ * VitePress の brand-1 は本文リンク色として小さな文字に使われるため、白背景での
+ * コントラスト確保を優先して Primary をわずかに暗くした #c44d7d を採用する。
+ * 塗り（ボタン・ホバー・見出しアクセント）は Primary #d76492 をそのまま使い、ブランドを保つ。
+ * =========================================================================== */
+:root {
+  /* ブランド主色（Primary 派生）*/
+  --vp-c-brand-1: #c44d7d; /* リンク文字 / アクセント文字（可読性優先で Primary を微暗化）*/
+  --vp-c-brand-2: #d76492; /* ホバー（= Primary）*/
+  --vp-c-brand-3: #d76492; /* 塗り（ボタン背景・ヒーローグラデ）= Primary */
+  --vp-c-brand-soft: rgba(215, 100, 146, 0.14); /* 淡ピンク背景（Tertiary 相当）*/
+
+  /* 後方互換エイリアス（古い参照向け）*/
+  --vp-c-brand: var(--vp-c-brand-1);
+  --vp-c-brand-light: var(--vp-c-brand-2);
+  --vp-c-brand-lighter: var(--vp-c-brand-soft);
+  --vp-c-brand-dark: #b5436f;
+
+  /* 本文テキスト（EC-BELTA Text base #3d3d3d）*/
+  --vp-c-text-1: #3d3d3d;
+  --vp-c-text-2: #5e5e5e;
+  --vp-c-text-3: #888; /* EC-BELTA Review グレー */
+
+  /* ボーダー（EC-BELTA Border 200/400/500）*/
+  --vp-c-divider: #eee;
+  --vp-c-border: #ddd;
+  --vp-c-gutter: #eee;
+
+  /* Caution（警告色）EC-BELTA #e40101 を danger に割り当て */
+  --vp-c-danger-1: #e40101;
+  --vp-c-danger-2: #cf0101;
+  --vp-c-danger-3: #e40101;
+  --vp-c-danger-soft: rgba(228, 1, 1, 0.1);
+}
+
+/* ダークモード: 暗背景では Primary を明るめのピンクへ持ち上げて可読性を確保。
+ * テキスト基調も沈みすぎない明度に戻す（EC-BELTA は明背景前提のため派生値）。*/
+.dark {
+  --vp-c-brand-1: #e89bb8; /* リンク文字（明ピンク）*/
+  --vp-c-brand-2: #e07ea2;
+  --vp-c-brand-3: #d76492; /* 塗りは Primary を維持 */
+  --vp-c-brand-soft: rgba(215, 100, 146, 0.18);
+  --vp-c-brand-dark: #e07ea2;
+
+  --vp-c-text-1: rgba(255, 255, 255, 0.87);
+  --vp-c-text-2: rgba(235, 235, 235, 0.6);
+  --vp-c-text-3: rgba(235, 235, 235, 0.38);
+
+  --vp-c-danger-1: #ff5b5b; /* 暗背景向けに Caution を明るく */
+  --vp-c-danger-2: #ff4040;
+  --vp-c-danger-3: #ff5b5b;
+  --vp-c-danger-soft: rgba(255, 91, 91, 0.16);
+}
+
+/* ===========================================================================
+ * 2. ボタン（EC-BELTA ボタン階層 / トランジション）
+ *
+ * Primary ボタンはピンク塗り。ホバーは EC-BELTA の opacity-hover-base(0.6) ではなく
+ * VitePress 流に色変化させ、トランジションは EC-BELTA の 0.3s ease に揃える。
+ * =========================================================================== */
+:root {
+  --vp-button-brand-bg: var(--vp-c-brand-3);
+  --vp-button-brand-hover-bg: #e07ea2; /* Secondary 寄りの明るいピンク */
+  --vp-button-brand-active-bg: #c44d7d;
+  --vp-button-brand-text: #fff; /* Primary contrast = #fff */
+  --vp-button-brand-border: transparent;
+  --vp-button-brand-hover-border: transparent;
+  --vp-button-brand-active-border: transparent;
+}
+
+.VPButton {
+  transition: all 0.3s ease; /* EC-BELTA --transition-base */
+}
+
+/* ===========================================================================
+ * 3. ホームヒーロー（ブランドのグラデーション）
+ *
+ * サイト名を Primary→Secondary のピンクグラデで魅せる。
+ * =========================================================================== */
+:root {
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #d76492 30%, #d97da2);
+
+  /* ヒーロー脇のアイコン背景（淡ピンクのにじみ）*/
+  --vp-home-hero-image-background-image: linear-gradient(
+    -45deg,
+    rgba(215, 100, 146, 0.5) 30%,
+    rgba(246, 228, 235, 0.6)
+  );
+  --vp-home-hero-image-filter: blur(44px);
+}
+
+/* ===========================================================================
+ * 4. タイポグラフィ（EC-BELTA フォント / 行送り）
+ *
+ * フォントスタックは EC-BELTA の $font-family-base に一致。外部 Web フォントは
+ * 読み込まず、端末にある Noto Sans JP / Yu Gothic 等へフォールバックする。
+ * 本文の行送りは EC-BELTA の line-height-base(1.8) に合わせ、読みやすさを優先。
+ * =========================================================================== */
+:root {
+  --vp-font-family-base: "Noto Sans JP", "Yu Gothic", "游ゴシック", yugothic,
+    "游ゴシック体", "ヒラギノ角ゴ Pro W3", "メイリオ", sans-serif;
+}
+
+.vp-doc p,
+.vp-doc li {
+  line-height: 1.8; /* EC-BELTA --line-height-base */
+}
+
+/* ===========================================================================
+ * 5. 装飾アクセント（控えめに：1 要素 1 メッセージ）
+ *
+ * 見出し直前のセクション区切りや、リンクの下線色などにブランドのピンクをにじませる。
+ * doc-writing 規約の「引き算」に従い過剰装飾はしない。
+ * =========================================================================== */
+
+/* 本文リンクのホバーで Primary をしっかり見せる */
+.vp-doc a {
+  text-underline-offset: 2px;
+  transition: color 0.2s ease; /* EC-BELTA --transition-fast */
+}
+
+/* tip コールアウト（VitePress 既定でブランド色＝ピンクになる）の左帯を Primary 実色に */
+.custom-block.tip {
+  border-color: var(--vp-c-brand-3);
+}
+
+/* ===========================================================================
+ * 6. ロゴ / ヒーロー画像
+ *
+ * ロゴは白背景の正方形イラスト。ヒーローでは角丸＋淡い影で馴染ませ、
+ * 背後の淡ピンクグラデ（4. の --vp-home-hero-image-background-image）と調和させる。
+ * =========================================================================== */
+.VPHero .VPImage.image-src {
+  border-radius: 24px;
+  box-shadow: 0 8px 16px rgb(0 0 0 / 8%); /* EC-BELTA $shadow-lg を弱めた淡い影 */
+}
+
+/* ナビバーのロゴを少し大きめにして視認性を確保 */
+.VPNavBarTitle .logo {
+  height: 30px;
+}
