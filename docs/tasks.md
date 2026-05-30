@@ -38,16 +38,17 @@
 - [ ] `notion-property-reference.md`：title / rich_text / select の JSON Schema
 - [ ] `notion-property-reference.md`：relation / formula / rollup の JSON Schema
 
-## Day 5: MCP 4 ツール接続（0.5d）
+## Day 5: 4 ツール接続（0.5d、OAuth ベース）
 
 - [ ] `commands/workflow-setup.md` 作成
-- [ ] Notion MCP add コマンド記述
-- [ ] Slack MCP add コマンド記述
-- [ ] GitHub MCP add コマンド記述
-- [ ] Google Drive MCP add コマンド記述
-- [ ] `references/mcp-setup.md` 作成（表形式参考）
-- [ ] `~/.belta/secrets.env` 保存ロジック実装
-- [ ] `claude mcp list` での結果検証ステップ追加
+- [ ] Notion: claude.ai → Connectors → Notion 認可手順を記述
+- [ ] Slack: claude.ai → Connectors → Slack 認可手順を記述
+- [ ] Google Drive: claude.ai → Connectors → Google Drive 認可手順を記述
+- [ ] GitHub: `gh auth login --web` 案内（device flow OAuth）を記述
+- [ ] `references/mcp-setup.md` 作成（4 ツール一覧表：認証方式 / 検証コマンド）
+- [ ] 検証ステップ：claude.ai Connector 3 件 → `/mcp` で列挙確認
+- [ ] 検証ステップ：GitHub → `gh auth status` で `Logged in to github.com` 確認
+- [ ] 検証ステップ：オンボーディング全体が 5 分以内で完了することを内田氏自身で実測
 
 ## Day 6: PII 検知フック + セキュリティポリシー（0.5d）
 
@@ -57,16 +58,54 @@
 - [ ] PII 正規表現：メールアドレス一括（5 件以上）
 - [ ] PII 正規表現：「マル秘」「社外秘」「Confidential」
 - [ ] PII 正規表現：`password\s*[:=]`
-- [ ] 対象ツール設定：`mcp__slack__*` / `mcp__notion__*` / `Bash(curl *)`
+- [ ] 対象ツール設定：claude.ai Connector の **書き込み系**
+  - [ ] Slack: `slack_send_message` / `slack_send_message_draft` / `slack_create_canvas` / `slack_schedule_message` / `slack_update_canvas`
+  - [ ] Notion: `notion-create-*` / `notion-update-*` / `notion-create-comment` / `notion-duplicate-page` / `notion-move-pages`
+  - [ ] Google Drive: `create_file` / `copy_file`
+- [ ] 対象ツール設定：GitHub `gh` CLI の **書き込み系** Bash サブコマンド
+  - [ ] `Bash(gh issue create *)` / `Bash(gh issue comment *)` / `Bash(gh issue edit *)`
+  - [ ] `Bash(gh pr create *)` / `Bash(gh pr comment *)` / `Bash(gh pr edit *)`
+  - [ ] `Bash(gh release create *)` / `Bash(gh gist create *)`
+  - [ ] `Bash(gh api * --method POST|PATCH|PUT*)`
+- [ ] 対象ツール設定：HTTP クライアント `Bash(curl *)` / `Bash(wget *)` / `Bash(http *)`
 - [ ] `references/security-policies.md` 作成（everything-claude-code から移植）
 
 ## Day 7: permission allowlist（0.5d）
 
-- [ ] `plugin.json` allow セクション記述（Read / Write(.belta/**) / mcp__notion__* 等）
-- [ ] `plugin.json` ask セクション記述（mcp__slack__send_* / Bash(curl *) 等）
-- [ ] `plugin.json` deny セクション記述（Bash(rm -rf *) / Bash(sudo *) 等）
-- [ ] `rm -rf /tmp/test` が deny されることを手動確認
-- [ ] `mcp__slack__send_message` が ask されることを手動確認
+### allow（読み取り / 安全な操作）
+
+- [ ] Read / Write(`.belta/**`)
+- [ ] Bash 読み取り系：`git status`, `git log *`, `git diff *`, `git branch *`, `ls *`, `cat *`, `head *`, `tail *`
+- [ ] Bash `gh` 読み取り系：`gh auth status`, `gh auth token`, `gh repo view *`, `gh repo list *`, `gh pr view *`, `gh pr list *`, `gh pr diff *`, `gh issue view *`, `gh issue list *`, `gh run list *`, `gh run view *`, `gh search *`, `gh api * --method GET*`
+- [ ] Notion 読み取り系：`mcp__claude_ai_Notion__notion-search` / `notion-fetch` / `notion-query-*` / `notion-get-*`
+- [ ] Slack 読み取り系：`mcp__claude_ai_Slack__slack_read_*` / `slack_search_*`
+- [ ] Google Drive 読み取り系：`mcp__claude_ai_Google_Drive__search_files` / `read_file_content` / `list_recent_files` / `get_file_metadata` / `download_file_content`
+
+### ask（書き込み / 外部影響）
+
+- [ ] Slack 書き込み系：`slack_send_message` / `slack_send_message_draft` / `slack_schedule_message` / `slack_create_canvas` / `slack_update_canvas`
+- [ ] Notion 書き込み系：`notion-create-*` / `notion-update-*` / `notion-duplicate-page` / `notion-move-pages`
+- [ ] Google Drive 書き込み系：`create_file` / `copy_file`
+- [ ] GitHub 書き込み系：`Bash(gh issue create|comment|edit *)` / `Bash(gh pr create|comment|edit|merge *)` / `Bash(gh release create *)` / `Bash(gh gist create *)` / `Bash(gh api * --method POST|PATCH|PUT*)`
+- [ ] Git 操作系：`Bash(git push *)` / `Bash(git commit *)` / `Bash(git rebase *)` / `Bash(git merge *)` / `Bash(git reset *)`
+- [ ] HTTP クライアント：`Bash(curl *)` / `Bash(wget *)` / `Bash(http *)`
+- [ ] Write(`.belta/` 外)
+
+### deny（破壊系）
+
+- [ ] `Bash(rm -rf *)` / `Bash(sudo *)` / `Bash(chmod -R *)`
+- [ ] `Bash(gh repo delete *)` / `Bash(gh pr close *)` / `Bash(gh issue close *)`
+- [ ] `Bash(git push --force *)` / `Bash(git push -f *)`
+- [ ] `mcp__claude_ai_Slack__*delete*`
+- [ ] `mcp__claude_ai_Google_Drive__*delete*`
+
+### 手動動作確認
+
+- [ ] `rm -rf /tmp/test` が deny されることを確認
+- [ ] `mcp__claude_ai_Slack__slack_send_message` が ask されることを確認
+- [ ] `gh issue create` が ask されることを確認
+- [ ] `gh pr list` が allow（プロンプトなし）で通ることを確認
+- [ ] `git push --force` が deny されることを確認
 
 ## Day 8: パーソナライズ機構（1d）
 
@@ -77,7 +116,9 @@
 - [ ] `~/.belta/.onboarded` state file 判定（once-only パターン）
 - [ ] `notes/` / `inbox/` / `todos/` ディレクトリ生成
 
-## Day 9: 自動ルール化サブスキル（1d）
+## Day 9: 自動ルール化 + 自動エージェント化サブスキル（1.5d）
+
+### rule-learning（プラン §6-1）
 
 - [ ] `skills/rule-learning/SKILL.md` 作成
 - [ ] 検知トリガ：発話フレーズ検出（「次回からは」「毎回」等）
@@ -89,6 +130,22 @@
 - [ ] 自動化フロー：rejected 履歴管理（3 回目までは再提案しない）
 - [ ] `references/rule-template.md` frontmatter 雛形作成
 - [ ] `.belta/rules/RULES.md` 初期インデックス作成
+
+### agent-learning（プラン §6-2、Q1=b / Q2=5 営業日 2 回 / Q3=計画どおり）
+
+- [ ] `skills/agent-learning/SKILL.md` 作成
+- [ ] 検知トリガ：直近 5 営業日の `.belta/notes/` 走査ロジック
+- [ ] 検知トリガ：同一業務領域 2 回検出（LLM ラベル判定）
+- [ ] 自動化フロー：「`<slug>` を専用エージェント化しますか？」確認ダイアログ
+- [ ] 自動化フロー：`~/.belta/agents/<slug>.md` 生成ロジック
+- [ ] 自動化フロー：`~/.claude/agents/<slug>.md` への symlink 作成
+- [ ] 自動化フロー：`AGENTS.md` に fired/adopted/deleted/rejected 記録
+- [ ] 自動化フロー：起動時 symlink 健全性確認 → 切れ検知 → deleted_at 記録
+- [ ] 自動化フロー：rejected 履歴管理（同領域 3 回連続却下 → 14 営業日冷却）
+- [ ] `references/agent-template.md` frontmatter 雛形作成（name / description / tools / model: inherit / source_notes）
+- [ ] permission 継承：親 `plugin.json` allow の部分集合のみ生成 subagent に渡すロジック
+- [ ] PII フック動作確認：subagent 経由でも `hooks/pre-tool-use.sh` が発火することを手動確認
+- [ ] `.belta/agents/AGENTS.md` 初期インデックス作成
 
 ## Day 10: Git 層漏洩防止（0.5d）
 
@@ -115,6 +172,9 @@
 - [ ] 検知トリガフレーズを意図的に 3 回発話 → ルール化提案動作確認
 - [ ] 同じ訂正を 2 回 → ルール化提案動作確認
 - [ ] 自動ルール化 5 件以上発火、3 件以上採用を確認
+- [ ] 同一業務領域の発話を 5 営業日内に 2 回 → エージェント化提案動作確認
+- [ ] 自動エージェント化 1 件以上発火・採用、symlink 健全性 OK を確認
+- [ ] `~/.claude/agents/<slug>.md` を手動削除 → `AGENTS.md` に deleted_at が記録されることを確認
 
 ## Day 13-14: 社内ドッグフード + 改善（2d）
 
