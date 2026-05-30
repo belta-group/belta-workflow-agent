@@ -136,77 +136,82 @@
 
 ## Day 8: パーソナライズ機構（1d）
 
-- [ ] `references/profile-template.md` 作成（owner_email + 部署 + 主要業務）
-- [ ] `references/roles.md` 作成（情報システム部のみ詳細）
-- [ ] `.belta/` ディレクトリ初期化ロジック
-- [ ] `~/.belta/config.yaml` 管理ロジック（gstack-main 流用、atomic write + 0o600）
+- [x] `references/profile-template.md` 作成（owner_email + 部署 + 主要業務）
+- [x] `references/roles.md` 作成（情報システム部のみ詳細 + 汎用ロール雛形。他部署は実組織に合わせて拡充）
+- [x] `.belta/` ディレクトリ初期化ロジック（`scripts/belta-init.js`、Node.js 実装で Mac / Windows 両対応。冪等・atomic）
+- [x] `~/.belta/config.yaml` 管理ロジック（gstack-main 流用、atomic write tmp→rename + 0o600。get/set 付き）
 - [x] `~/.belta/.onboarded` state file 判定（once-only パターン。`session-start.js` で読み取り判定、`workflow-setup` 完了時に作成）
-- [ ] `notes/` / `inbox/` / `todos/` ディレクトリ生成
+- [x] `notes/` / `inbox/` / `todos/` ディレクトリ生成（`belta-init.js init`）
 
 ## Day 9: 自動ルール化 + 自動エージェント化 + 自動スキル提案サブスキル（2d）
 
 ### rule-learning（プラン §6-1）
 
-- [ ] `skills/rule-learning/SKILL.md` 作成
-- [ ] 検知トリガ：発話フレーズ検出（「次回からは」「毎回」等）
-- [ ] 検知トリガ：同じ訂正パターン 2 回以上検知ロジック
-- [ ] 検知トリガ：非自明な選択肢採用後の確認発話
-- [ ] 自動化フロー：「ルール化しますか？」確認ダイアログ
-- [ ] 自動化フロー：個別 .md 保存ロジック
-- [ ] 自動化フロー：`RULES.md` インデックス追記ロジック
-- [ ] 自動化フロー：rejected 履歴管理（3 回目までは再提案しない）
-- [ ] `references/rule-template.md` frontmatter 雛形作成
-- [ ] `.belta/rules/RULES.md` 初期インデックス作成
+- [x] `skills/rule-learning/SKILL.md` 作成
+- [x] 検知トリガ：発話フレーズ検出（「次回からは」「毎回」等）
+- [x] 検知トリガ：同じ訂正パターン 2 回以上検知ロジック
+- [x] 検知トリガ：非自明な選択肢採用後の確認発話
+- [x] 自動化フロー：「ルール化しますか？」確認ダイアログ
+- [x] 自動化フロー：個別 .md 保存ロジック
+- [x] 自動化フロー：`RULES.md` インデックス追記ロジック
+- [x] 自動化フロー：rejected 履歴管理（3 回目までは再提案しない）
+- [x] `references/rule-template.md` frontmatter 雛形作成
+- [x] `.belta/rules/RULES.md` 初期インデックス作成（テンプレート + 無ければ作成ロジックを SKILL/reference に内蔵。`.belta/` は home 配下・gitignore のため実体は初回実行時生成）
 
 ### agent-learning（プラン §6-2、Q1=b / Q2=5 営業日 2 回 / Q3=計画どおり）
 
-- [ ] `skills/agent-learning/SKILL.md` 作成
-- [ ] 検知トリガ：直近 5 営業日の `.belta/notes/` 走査ロジック
-- [ ] 検知トリガ：同一業務領域 2 回検出（LLM ラベル判定）
-- [ ] 自動化フロー：「`<slug>` を専用エージェント化しますか？」確認ダイアログ
-- [ ] 自動化フロー：`~/.belta/agents/<slug>.md` 生成ロジック
-- [ ] 自動化フロー：生成エージェントの業務カテゴリ判定 → モデル選択ポリシー（haiku / sonnet / inherit の 3 段、[references/agent-template.md](../plugins/workflow/skills/agent-learning/references/agent-template.md)）に従い `model` を決定（`inherit` 固定にしない）
-- [ ] 自動化フロー：`~/.claude/agents/<slug>.md` への symlink 作成
-- [ ] 自動化フロー：`AGENTS.md` に fired/adopted/deleted/rejected 記録
-- [ ] 自動化フロー：起動時 symlink 健全性確認 → 切れ検知 → deleted_at 記録
-- [ ] 自動化フロー：rejected 履歴管理（同領域 3 回連続却下 → 14 営業日冷却）
+- [x] `skills/agent-learning/SKILL.md` 作成
+- [x] 検知トリガ：直近 5 営業日の `.belta/notes/` 走査ロジック
+- [x] 検知トリガ：同一業務領域 2 回検出（LLM ラベル判定）
+- [x] 自動化フロー：「`<slug>` を専用エージェント化しますか？」確認ダイアログ
+- [x] 自動化フロー：`~/.belta/agents/<slug>.md` 生成ロジック
+- [x] 自動化フロー：生成エージェントの業務カテゴリ判定 → モデル選択ポリシー（haiku / sonnet / inherit の 3 段、[references/agent-template.md](../plugins/workflow/skills/agent-learning/references/agent-template.md)）に従い `model` を決定（`inherit` 固定にしない）
+- [x] 自動化フロー：`~/.claude/agents/<slug>.md` への symlink 作成（`scripts/link-agent.js` の `link` サブコマンド。Windows で symlink 不可時はコピーへフォールバック）
+- [x] 自動化フロー：`AGENTS.md` に fired/adopted/deleted/rejected 記録
+- [x] 自動化フロー：起動時 symlink 健全性確認 → 切れ検知 → deleted_at 記録（`scripts/link-agent.js` の `check` サブコマンド。ok/deleted/broken を返却）
+- [x] 自動化フロー：rejected 履歴管理（同領域 3 回連続却下 → 14 営業日冷却）
 - [x] `references/agent-template.md` frontmatter 雛形作成（name / description / tools / model / source_notes）＋モデル選択ポリシー（haiku / sonnet / inherit の 3 段。`inherit` 固定にせず業務カテゴリで出し分け）
-- [ ] permission 継承：親 `plugin.json` allow の部分集合のみ生成 subagent に渡すロジック
-- [ ] PII フック動作確認：subagent 経由でも `hooks/pre-tool-use.sh` が発火することを手動確認
-- [ ] `.belta/agents/AGENTS.md` 初期インデックス作成
+- [x] permission 継承：親 `.claude/settings.json` allow の部分集合のみ生成 subagent に渡すロジック（SKILL.md「セキュリティ境界」に明文化。plugin.json には permissions フィールドが無いため権威ソースは settings.json）
+- [ ] PII フック動作確認：subagent 経由でも `hooks/pre-tool-use.js` が発火することを手動確認
+- [x] `.belta/agents/AGENTS.md` 初期インデックス作成（テンプレート + 無ければ作成ロジックを SKILL に内蔵。実体は初回実行時生成）
 
 ### skill-suggestion（業務効率化スキルの自動提案・インストール、プラン §6-3）
 
-- [ ] `skills/skill-suggestion/SKILL.md` 作成
-- [ ] 検知トリガ：既存スキルでカバーできない非効率な手作業の繰り返し検出（例：PDF 抽出・スプレッドシート集計・議事録要約・スライド作成）
-- [ ] 検知トリガ：能力探索フレーズ検出（「〜できる？」「〜のやり方」「もっと楽に」「自動化できない？」等）
-- [ ] 検知トリガ：同種タスク 2 回以上 × 主要業務（プロフィール）との照合で適合スキルを推定
-- [ ] 候補探索：`find-skills` スキル経由でインストール可能スキルを検索
-- [ ] 候補探索：インストール済みスキル一覧と利用可能候補の突合（重複提案を抑止）
-- [ ] 信頼ソース allowlist：社内 marketplace（`belta-group/*`）+ Anthropic 公式のみ自動インストール対象とし、出典・提供元・要求権限を提示
-- [ ] 自動化フロー：「`<skill>` を導入すると効率化できます。インストールしますか？」確認ダイアログ（要求権限・提供元を併記）
-- [ ] 自動化フロー：`/plugin install`（または skill 配置）実行ロジック（Node.js 実装で Mac / Windows 両対応）
-- [ ] 自動化フロー：インストール後の有効化・読み込み確認（`/plugin` または skill 一覧で存在確認）
-- [ ] 自動化フロー：`SKILLS.md` に suggested/installed/rejected/uninstalled 記録
-- [ ] 自動化フロー：rejected 履歴管理（同一スキル 3 回連続却下 → 14 営業日冷却）
-- [ ] セキュリティ：未審査・allowlist 外スキルは自動インストール禁止（提案のみに留め、手動導入を案内）
-- [ ] セキュリティ：インストール直後の新規スキルにも `hooks/pre-tool-use.js`（PII 検知）が適用されることを確認
-- [ ] `references/skill-allowlist.md` 作成（許可 marketplace / 提供元 / 既定推奨スキル一覧）
-- [ ] `.belta/skills/SKILLS.md` 初期インデックス作成
+- [x] `skills/skill-suggestion/SKILL.md` 作成
+- [x] 検知トリガ：既存スキルでカバーできない非効率な手作業の繰り返し検出（例：PDF 抽出・スプレッドシート集計・議事録要約・スライド作成）
+- [x] 検知トリガ：能力探索フレーズ検出（「〜できる？」「〜のやり方」「もっと楽に」「自動化できない？」等）
+- [x] 検知トリガ：同種タスク 2 回以上 × 主要業務（プロフィール）との照合で適合スキルを推定
+- [x] 候補探索：`find-skills` スキル経由でインストール可能スキルを検索
+- [x] 候補探索：インストール済みスキル一覧と利用可能候補の突合（重複提案を抑止、SKILL.md Step 1）
+- [x] 信頼ソース allowlist：社内 marketplace（`belta-group/*`）+ Anthropic 公式のみ自動インストール対象とし、出典・提供元・要求権限を提示
+- [x] 自動化フロー：「`<skill>` を導入すると効率化できます。インストールしますか？」確認ダイアログ（要求権限・提供元を併記）
+- [x] 自動化フロー：`/plugin install`（または skill 配置）実行ロジック（Claude Code 標準スラッシュコマンドに委譲＝OS 非依存。独自 OS 依存コマンドは使わない）
+- [x] 自動化フロー：インストール後の有効化・読み込み確認（`/plugin` または skill 一覧で存在確認）
+- [x] 自動化フロー：`SKILLS.md` に suggested/installed/rejected/uninstalled 記録
+- [x] 自動化フロー：rejected 履歴管理（同一スキル 3 回連続却下 → 14 営業日冷却）
+- [x] セキュリティ：未審査・allowlist 外スキルは自動インストール禁止（提案のみに留め、手動導入を案内）
+- [ ] セキュリティ：インストール直後の新規スキルにも `hooks/pre-tool-use.js`（PII 検知）が適用されることを確認（手動確認。方針は SKILL.md に明文化済み）
+- [x] `references/skill-allowlist.md` 作成（許可 marketplace / 提供元 / 既定推奨スキル一覧）
+- [x] `.belta/skills/SKILLS.md` 初期インデックス作成（テンプレート + 無ければ作成ロジックを SKILL に内蔵。実体は初回実行時生成）
 
 ## Day 10: Git 層漏洩防止（0.5d）
 
-- [ ] `.gitleaks.toml` 作成
-- [ ] gitleaks ルール：マイナンバー
-- [ ] gitleaks ルール：クレジットカード
-- [ ] gitleaks ルール：メールアドレス一括
-- [ ] gitleaks ルール：パスワードリテラル
-- [ ] gitleaks ルール：「マル秘」「社外秘」「Confidential」
-- [ ] gitleaks ルール：`@belta.co.jp` ドメイン
-- [ ] gitleaks ルール：標準 API キーパターン継承
-- [ ] `.github/workflows/secret-scan.yml` 作成（gitleaks Action v2）
-- [ ] テスト用 PR で 6 種検知パターン commit → 全件 fail 確認
-- [ ] 通常コード 10 件で誤検知 0 件確認
+> **RE2 制約**: gitleaks は Go の RE2 を使うため lookahead/lookbehind 非対応。Day 6 フックの `(?<!\d)` 等は使えないので語境界 `\b` で等価化。スペース区切り 16 桁 CC は先頭 12 桁がマイナンバー規則にも重複ヒットし得るが、同行を `belta-credit-card` が独立検出するため CI は必ず fail（無害な重複）。
+> **誤検知対策**: 本プラグインは機密度分類が主題で `社外秘`/`Confidential` をソース・ドキュメントに語彙として多数含むため、`belta-confidential-label` 規則のみ `plugins/`・`docs/`・`README.md` をルール単位 allowlist で除外。社内ドメイン規則は `system-bot@belta.co.jp`（オンボーディング例）を match allowlist で除外。`.gitleaks.toml` 自身は全規則からグローバル除外。
+> **検証**: gitleaks 8.30.1 で実機検証済み（フィクスチャで 6 規則全件発火 + github-pat で標準ルール継承確認 / リポジトリ本体は未コミットの Day8・9 作業含め誤検知 0 件）。
+
+- [x] `.gitleaks.toml` 作成
+- [x] gitleaks ルール：マイナンバー（`belta-my-number`、12 桁 4-4-4）
+- [x] gitleaks ルール：クレジットカード（`belta-credit-card`、16 桁。Luhn はフック側担当）
+- [x] gitleaks ルール：メールアドレス一括（`belta-email-bulk`、5 件以上の連続）
+- [x] gitleaks ルール：パスワードリテラル（`belta-password-literal`、引用符付き値のみ＝型注釈の誤検知回避）
+- [x] gitleaks ルール：「マル秘」「社外秘」「Confidential」（`belta-confidential-label`）
+- [x] gitleaks ルール：`@belta.co.jp` ドメイン（`belta-internal-domain`）
+- [x] gitleaks ルール：個人名（`belta-personal-name`。「氏名/名前/フルネーム＝実値」＋「氏名列の CSV ヘッダ」のみ高精度検出。散文中の人名は誤検知回避のため意図的に対象外。`仕様`/`様式`/`内田氏` 等の通常語は不検出を実機確認）
+- [x] gitleaks ルール：標準 API キーパターン継承（`[extend] useDefault = true`）
+- [x] `.github/workflows/secret-scan.yml` 作成（gitleaks Action v2。org 配下は `GITLEAKS_LICENSE` secret 登録が必要）
+- [x] テスト用 PR で 6 種検知パターン commit → 全件 fail 確認（ローカル gitleaks 8.30.1 のフィクスチャ実行で 6 規則全件検出を確認。実 PR での CI 発火確認は配布前に別途実施）
+- [x] 通常コード 10 件で誤検知 0 件確認（リポジトリ全体 199KB スキャンで 0 件。未コミットの Day8・9 ファイル含む）
 
 ## Day 11-12: テスト（2d）
 

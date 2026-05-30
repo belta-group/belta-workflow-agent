@@ -37,9 +37,18 @@ MCP 接頭辞のトラブルシュートで一定の判断が要るため、haik
 
 **メールアドレス**は `userEmail` コンテキスト（例: `system-bot@belta.co.jp`）を初期値として提示し、「このアドレスでよいですか？」と確認します。違う場合は訂正してもらってください。
 
-### Step 2. プロフィール保存
+### Step 2. `.belta` 初期化 + プロフィール保存
 
-収集内容を `~/.belta/profile.md` に書き込みます（ディレクトリが無ければ作成）。
+まず個人データ領域 `~/.belta/`（`notes/` `inbox/` `todos/` と機械可読設定 `config.yaml`）を初期化します。次を実行（Node.js 実装、Mac / Windows 両対応。atomic write + POSIX では 0o600。冪等で既存値は壊しません）：
+
+```
+node "${CLAUDE_PLUGIN_ROOT}/scripts/belta-init.js" init --owner-email <メール> --confidentiality <公開|社外秘|極秘>
+```
+
+- `config.yaml` には `owner_email` / `confidentiality` / 自動化機能のフラグ（rule/agent/skill）が入る。後から `belta-init.js set <key> <value>` で更新できる。
+- ベースを変えたい場合は `--dir <path>`。既定はホームの `.belta`（POSIX: `$HOME` / Windows: `%USERPROFILE%`）。
+
+次に、収集内容を `~/.belta/profile.md`（人間可読の正本）に Write ツールで書き込みます（ディレクトリは初期化済み）。フィールド定義は [references/profile-template.md](../skills/workflow/references/profile-template.md) を参照。
 
 ```markdown
 ---

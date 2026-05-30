@@ -151,6 +151,7 @@ created_at: <YYYY-MM-DD>
 | Notion DB / データベースのスキーマ設計・プロパティ設計 | `notion-schema` スキル（DB 設計知識・property reference を保持） |
 | 「次回からは」「毎回」等の発話、同じ訂正の繰り返し | `rule-learning` スキル（`.belta/rules/` にルールを提案・蓄積） |
 | 同一業務領域が 5 営業日以内に 2 回出現 | `agent-learning` スキル（専用 subagent を `~/.belta/agents/` に生成） |
+| 既存スキルで賄えない非効率作業の繰り返し、「〜できる？」「自動化できない？」等の能力探索 | `skill-suggestion` スキル（適合スキルを find-skills 経由で探し、信頼ソースに限り提案・導入） |
 
 ### ブラウザ操作が必要な場合（未インストール時の案内）
 
@@ -200,5 +201,8 @@ Web 上の情報収集・画面操作など **ブラウザ自動化が必要** �
 
 - 初回セットアップ手順: `commands/workflow-setup.md`
 - 4 ツール接続リファレンス: `references/mcp-setup.md`
-- プロフィール雛形: `references/profile-template.md`（Day 8 で作成）
-- Notion スキーマ知識: `notion-schema` スキル（Day 3-4 で作成）
+- プロフィール雛形: `references/profile-template.md`
+- 部署別ロールブック: `references/roles.md`
+- セキュリティポリシー: `references/security-policies.md`
+- `.belta` 初期化・config 管理: `scripts/belta-init.js`（`~/.belta/` + `config.yaml`）
+- Notion スキーマ知識: `notion-schema` スキル
