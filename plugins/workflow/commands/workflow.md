@@ -1,0 +1,23 @@
+---
+description: Belta ワークフローエージェントを起動する。初回は 5 問オンボーディング、以降は発話から Notion / Slack / GitHub / Google Drive へ自動分岐。
+model: inherit
+---
+
+<!--
+model: inherit — 運営の窓口かつ分岐の頭脳。任意発話の意図解釈・複数ツール連携・
+機密度に応じた判断を担うため、セッションのモデル（通常 Opus）を継承して品質を落とさない。
+コスト最適化のためにモデルを下げてよいのは定型処理に閉じたコマンド（例: /workflow-setup）側。
+-->
+
+
+# /workflow — Belta ワークフローエージェント
+
+`workflow` スキル（`skills/workflow/SKILL.md`）を起動する入口コマンド。
+
+手順はすべて `skills/workflow/SKILL.md` に従う：
+
+1. **モード判定** — `<home>/.belta/.onboarded` の有無を確認する（ホームディレクトリ環境変数から解決、区切り文字は直書きしない）。
+2. **未オンボーディング** → 5 問オンボーディング（氏名 / 部署 / 主要業務 3 つ / 機密度 / 接続ツール）を実施し、`<home>/.belta/profile.md` を生成、4 ツールの OAuth 接続を案内、完了後 `.onboarded` を作成する。詳細手順は `commands/workflow-setup.md` と一致させる。
+3. **オンボーディング済み** → `profile.md` を読み込み、運営モードに入る。利用者の発話を内容に応じて Notion / Slack / GitHub / Google Drive に振り分ける。
+
+> ブラウザ操作が必要で未インストールの場合は、SKILL.md の案内文に従ってインストールを促す。

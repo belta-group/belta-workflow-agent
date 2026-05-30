@@ -1,0 +1,8 @@
+# 改行コードは LF に固定（Windows チェックアウト時の CRLF 化を防ぐ）。
+# フック / スクリプトが CRLF になると Mac / Linux で実行不能になるため。
+* text=auto eol=lf
+
+# バイナリは Git の自動判定に委ねる
+*.png binary
+*.jpg binary
+*.pdf binary

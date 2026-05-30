@@ -23,3 +23,9 @@ node_modules/
 
 # ローカル Claude Code 設定（プロジェクト固有のキャッシュ等）
 .claude/
+# 例外：プラグイン同梱の権威 settings.json（permission allowlist）は配布対象として追跡する。
+# 親ディレクトリを先に再包含しないとファイル単体の再包含は効かない（git の仕様）。
+!plugins/workflow/.claude/
+!plugins/workflow/.claude/settings.json
+# ただしローカル上書き（*.local.json）は配布対象外として再除外する。
+plugins/workflow/.claude/*.local.json

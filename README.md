@@ -13,11 +13,13 @@ Belta 社内向けワークフロー自動化エージェント（Claude Code Pl
 /plugin install workflow@belta-workflow-agent
 ```
 
-その後、初回のみ 4 ツール接続をセットアップします（所要 5 分）。
+インストール後、**最初のセッション開始時に初回セットアップが自動で案内されます**（`SessionStart` フックによる once-only 起動。Claude Code にインストール時フックが無いための代替手段）。氏名・部署・メール・機密度・接続ツールを対話で収集し、4 ツールの OAuth 接続まで案内します（所要 5 分）。手動で再実行する場合は次のコマンド：
 
 ```
 /workflow-setup
 ```
+
+> セットアップ完了時に `~/.belta/.onboarded` が作成され、以降は自動案内されません。未完了のうちは毎回のセッション開始時に再案内されます（やり残しの自己修復）。なお、プラグインを入れた時点で既に開いているセッションでは発火しないため、新しいセッションで案内されます。
 
 認証は **すべて OAuth ベース**（PAT・API キーの手動コピペ不要）：
 
@@ -78,9 +80,14 @@ belta-workflow-agent/
 │       │   ├── workflow.md
 │       │   └── workflow-setup.md
 │       └── hooks/
-│           └── pre-tool-use.sh    ← PII / 機密検知
+│           ├── hooks.json         ← フック登録（SessionStart / PreToolUse / Stop）
+│           ├── session-start.js   ← 初回セットアップ自動起動（once-only、Node.js / Mac・Windows 両対応）
+│           ├── pre-tool-use.js    ← PII / 機密検知（Node.js / Mac・Windows 両対応）
+│           └── token-usage.js     ← トークン使用量ログ（Stop、~/.belta/audit/tokens/ に集計。Node.js / Mac・Windows 両対応）
 ├── .gitleaks.toml
 ├── .github/workflows/secret-scan.yml
+├── scripts/
+│   └── aggregate-token-usage.js  ← トークン使用量の集計（Phase 0 実測データ用。--md / --json 出力）
 └── docs/
     ├── background.md              ← Phase -1 背景
     └── tasks.md                   ← 実装チェックリスト
