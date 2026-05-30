@@ -21,6 +21,13 @@ Thumbs.db
 # ノードモジュール（将来 packages/ 配下で使う場合）
 node_modules/
 
+# VitePress（利用ガイド docs/）のビルドキャッシュ・成果物
+docs/.vitepress/cache/
+docs/.vitepress/dist/
+
+# 作業用タスクメモ（個人ローカル）
+docs/tasks.md
+
 # ローカル Claude Code 設定（プロジェクト固有のキャッシュ等）
 .claude/
 # 例外：プラグイン同梱の権威 settings.json（permission allowlist）は配布対象として追跡する。
