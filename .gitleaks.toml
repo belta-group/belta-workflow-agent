@@ -74,8 +74,10 @@ keywords = ["password", "passwd", "pwd"]
 # 本プラグインは「情報の機密度分類（公開／社外秘／極秘）」自体が主題のため、
 # ソース・ドキュメント・スキル定義に「社外秘 / Confidential」が語彙として
 # 頻出する。これらは実データ（漏洩物）ではないため、プラグイン本体ツリー
-# （plugins/ ・ docs/ ・ README.md）を本ルールに限り除外する。除外外のパス
-# （例: 誤って repo に置かれたエクスポート文書）では引き続き検出する。
+# （plugins/ ・ docs/ ・ README.md ・ .github/）を本ルールに限り除外する。
+# .github/ はワークフロー定義に「公開範囲＝社外秘情報の取り扱い」注意書きが
+# 語彙として現れるため含める。除外外のパス（例: 誤って repo に置かれた
+# エクスポート文書）では引き続き検出する。
 [[rules]]
 id = "belta-confidential-label"
 description = "機密ラベル（マル秘 / ㊙ / 社外秘 / Confidential）"
@@ -83,7 +85,7 @@ regex = '''(?i)(マル秘|㊙|社外秘|Confidential)'''
 keywords = ["マル秘", "㊙", "社外秘", "confidential"]
   [rules.allowlist]
   description = "プラグイン本体ツリー（機密度分類が主題で、ラベルは語彙であり実データではない）"
-  paths = ['''^plugins/''', '''^docs/''', '''^README\.md$''']
+  paths = ['''^plugins/''', '''^docs/''', '''^README\.md$''', '''^\.github/''']
 
 # ── 個人名（氏名フィールド／PII テーブル列） ─────────────────────────────────
 # 「名前そのもの」を正規表現で弾くのは不可能（日本語の人名に構造が無く、
