@@ -129,3 +129,5 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/agent-learning/scripts/link-agent.js" check
 - symlink/コピー作成・健全性確認ヘルパー: [scripts/link-agent.js](scripts/link-agent.js)
 - 親の権限 allowlist（tools サブセットの上限）: [.claude/settings.json](../../.claude/settings.json)
 - テキスト指示で足りる繰り返し: [rule-learning](../rule-learning/SKILL.md)
+- 既製スキルで賄える非効率作業: [skill-suggestion](../skill-suggestion/SKILL.md)
+- 委譲でなく主作業に差し込む専門手順を自作する: [skill-authoring](../skill-authoring/SKILL.md)

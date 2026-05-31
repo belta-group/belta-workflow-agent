@@ -12,6 +12,8 @@ description: >
 [rule-learning](../rule-learning/SKILL.md)（テキスト指示）でも [agent-learning](../agent-learning/SKILL.md)（業務領域の専用エージェント化）でも埋まらない、**「そもそも今の手元の道具では非効率」** な繰り返し作業を検知し、適合する **インストール可能なスキル** を提案する。承認を得たら、信頼ソースに限り自動インストールまで行う。
 
 > 提案するのは「能力（スキル）の追加」。新しい振る舞いの記憶（rule）でも、領域専用の委譲先（agent）でもない点で前 2 スキルと役割が分かれる。
+>
+> さらに、本スキルが扱うのは **既にある配布済みスキルの探索・導入** に限る。手元の業務に合わせて **スキルを新規に自作** するのは [skill-authoring](../skill-authoring/SKILL.md) の領分。既製品で足りるなら本スキル（導入）、見つからず専門業務が 3 回以上反復するなら skill-authoring（自作）へ回す。
 
 ## いつ使うか（検知トリガ）
 
@@ -127,3 +129,4 @@ suggested / installed / rejected / uninstalled を追跡する。
 - 候補探索: `find-skills` スキル
 - テキスト指示で足りる繰り返し: [rule-learning](../rule-learning/SKILL.md)
 - 業務領域そのものの繰り返し: [agent-learning](../agent-learning/SKILL.md)
+- 既製品が無い専門業務を専用スキルとして自作する: [skill-authoring](../skill-authoring/SKILL.md)

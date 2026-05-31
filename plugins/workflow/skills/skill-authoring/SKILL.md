@@ -1,0 +1,145 @@
+---
+name: skill-authoring
+description: >
+  繰り返し現れる専門業務を、利用者専用の新しいスキルとして自作（authoring）する。
+  既存スキルの導入（skill-suggestion）ではなく、手元に無い手順・専門知識を SKILL.md
+  として新規生成し `~/.belta/skills/<name>/` に置いて `~/.claude/skills/` へ公開する。
+  rule / agent / 既存スキル導入のどれでも賄えない専門業務が 3 回以上反復したとき、
+  workflow スキルから委譲され、スキル化を提案する。「これスキルにして」「いつもの手順を
+  道具にして」等の明示依頼でも起動する。
+---
+
+# 自動スキル化（skill-authoring）
+
+パーソナライズ 4 機能の最後の砦。利用者の **専門性のある繰り返し業務** を、その業務専用の **新しいスキル** として自作する。`skill-suggestion` が「世にある既製品を探して導入する」のに対し、本スキルは「**手元の業務に合わせた専用の道具を新しくあつらえる**」点で役割が分かれる。
+
+- 正本: `~/.belta/skills/<name>/`（`SKILL.md` + 必要なら `references/` `scripts/`）
+- 呼び出し用: `~/.claude/skills/<name>/`（正本へのディレクトリ symlink。Windows 等で不可なら **再帰コピー** にフォールバック）
+
+> 生成 SKILL.md の中身（記述・description 設計）は Claude Code 標準の `skill-creator` スキルに委譲してよい。本スキルは「**いつ自作すべきか（消去法ゲート）**」「**どこに置き公開するか**」「**索引と継続追跡**」を司る。
+
+## 位置づけ：これは「最終手段」
+
+スキルは 4 機能の中で最も **侵襲的** である。`description` 一致で **自動発火** し、内容が **主コンテキストに読み込まれ**、実行スクリプトを同梱しうる。スコープがズレたスキルは不要な場面で発火し、毎回トークンを食う。したがって自作スキルは、**他の 3 手段で賄えなかったときの最後の選択肢** とする。
+
+| 先に検討する手段 | 賄える範囲 | 委譲先 |
+| --- | --- | --- |
+| テキスト指示で一般化できる好み・訂正 | 言い回し・段取りのルール | [rule-learning](../rule-learning/SKILL.md) |
+| 領域まるごとを隔離コンテキストへ委譲 | 専用 subagent（明示呼び出し） | [agent-learning](../agent-learning/SKILL.md) |
+| 既にある配布済みスキルで足りる | 既製スキルの探索・導入 | [skill-suggestion](../skill-suggestion/SKILL.md) |
+
+---
+
+## いつ使うか（消去法ゲート）
+
+次の **4 条件をすべて満たす** ときだけ、自作スキル化を候補にする。回数は補助条件で、本質は「**他の 3 手段で埋まらないこと**」の消去法である。
+
+> **判定材料の前提**: 反復検知は `~/.belta/notes/` の日次ログが土台。`Stop` フック（`hooks/notes-record.js`）が「その日の利用者依頼」を 1 セッション 1 行で確定記録しているため、LLM の自動記録が漏れても最低限の履歴が残る。走査前にまず当日・直近の notes を Read すること。
+
+1. **反復（3 回以上）** — 同種の **専門業務** が別々の機会に 3 回以上現れている。agent-learning（2 回）より高い閾値にするのは、スキルが最も侵襲的だから。完全一致でなく **意図が同じ業務** で数える。一度きりは対象外。
+2. **rule-learning で表現しきれない** — 手順が複数ステップにわたる／専門知識を伴うなどで、テキストのルール 1〜数行には収まらない。
+3. **agent-learning でなくスキルが適切** — 隔離コンテキストへの「委譲」ではなく、**主作業の流れに自動で差し込みたい知識・手順**である（例: 特定フォーマットの帳票生成、専門ドメインの定型変換）。委譲して結果だけ受け取れば足りるなら agent-learning を選ぶ。
+4. **既存スキルで賄えない** — `skill-suggestion` の手順（手元のスキル一覧の確認 + `find-skills` 探索）で適合する既製スキルが見つからない。見つかるなら導入（skill-suggestion）に回す。
+
+> いずれか 1 つでも欠けたら自作しない。欠けた条件に対応する手段（rule / agent / skill-suggestion）へ素直に回す。
+
+### 明示依頼での起動
+
+利用者が「これスキルにして」「いつもの手順を道具にしておいて」等と **明示的に依頼** した場合は、条件 1（回数）を緩めてよい。ただし条件 2〜4（ルール・エージェント・既存スキルで足りないか）は必ず確認し、より軽い手段で足りるならそれを提案する。
+
+---
+
+## 自動化フロー
+
+### Step 1: 消去法ゲートの確認 → スキル化を提案
+
+1. 上の 4 条件を順に確認する。途中で外れたら、その条件に対応する手段を案内して終了する。
+2. スキルの `name` を kebab-case で決める（例: `monthly-sales-report`, `contract-clause-extract`）。既存の自作スキル・既製スキルと衝突しないこと。
+3. 利用者に **AskUserQuestion**（スキル化する / 今回は不要、+ 自由記述）で確認する。**何を自動化し、どんな場面で発火するか** を 1〜2 文で添える：
+
+> 「最近『○○』の作業が 3 回続いていて、ルールにもエージェントにも既存スキルにも収まりません。`<name>` という専用スキルにしておくと、次回から○○の場面で自動的にこの手順で対応できます。作成しますか？」
+
+### Step 2-a: 承認 → 生成 + 公開 + 記録
+
+1. [references/skill-template.md](references/skill-template.md) の構成に沿って `~/.belta/skills/<name>/SKILL.md` を **Write ツールで生成** する。中身の質は `skill-creator` スキルに委譲してよい。
+   - **`description` は狭く具体的に。** 自動発火の精度はここで決まる。広すぎる description は誤発火の元（位置づけ参照）。発火条件を限定し、業務ドメインの語を入れる。
+   - 必要に応じて `references/`（参照知識）・`scripts/`（補助スクリプト）を同梱する。**スクリプトを置く場合は必ず Node.js 単一実装にし、`mkdir -p` / `cp` / `ln -s` 等の OS 依存コマンドを必須経路に置かない**（プラグインのクロスプラットフォーム実装規約 `cross-platform.md` に準拠）。
+   - `source_notes` に検知元の `notes/YYYY-MM-DD.md`（3 件以上）を記録する。
+2. ディレクトリ symlink（不可なら再帰コピー）で公開する。クロスプラットフォームのため Node.js ヘルパーを使う：
+
+   ```
+   node "${CLAUDE_PLUGIN_ROOT}/skills/skill-authoring/scripts/link-skill.js" link <name>
+   ```
+
+   - 出力 JSON の `mode` が `symlink` か `copy` かを確認する。`copy` の場合は正本を更新しても自動反映されない旨を `AUTHORED.md` の備考に残す。
+3. 索引 `~/.belta/skills/AUTHORED.md` に **fired / adopted** を記録する（後述）。
+4. **有効化確認**: 利用可能スキル一覧（または `/plugin`）に `<name>` が現れることを確認する。
+5. 「`<name>` を作成しました。次回から○○の場面でこのスキルが働きます」と返す。
+
+### Step 2-b: 拒否 → rejected 記録 + 冷却
+
+`AUTHORED.md` に `rejected` を記録する。**同一業務を 3 回連続で却下されたら 14 営業日の冷却**（提案停止）に入れる。冷却期間と回数は当該行に残す。
+
+---
+
+## 採用後の継続追跡（起動時のリンク健全性確認）
+
+運営モード起動時、`AUTHORED.md` に adopted 記録がある各スキルについて、公開先の健全性を確認する：
+
+```
+node "${CLAUDE_PLUGIN_ROOT}/skills/skill-authoring/scripts/link-skill.js" check
+```
+
+- 出力は各 `<name>` の `status`（`ok` / `deleted` / `broken`）と `mode`（`symlink` / `copy`）。
+- `deleted`（`~/.claude/skills/<name>/` が消えている）を検知したら、`AUTHORED.md` の該当行に `deleted_at:<YYYY-MM-DD>` を記録する（採用 → 削除の継続率メトリクス）。一度記録した deleted は再通知しない。
+- `broken`（公開先は在るが正本の `SKILL.md` が壊れている / 消えた）は利用者に知らせ、再生成 or 行削除を確認する。
+
+---
+
+## AUTHORED.md の管理（常に LLM 文脈に読込）
+
+`~/.belta/skills/AUTHORED.md` は起動時に毎回 Read されるインデックス。**`skill-suggestion` の `SKILLS.md`（既製スキルの導入記録）とは別ファイル** で、自作スキルの発火・採用・削除・却下を 1 行で追跡する。両者は `~/.belta/skills/` 直下に同居するが役割が異なる。
+
+### 初期化（無ければ作成）
+
+初めて自作スキルを扱うとき、次の内容で新規作成してから追記する：
+
+```markdown
+# AUTHORED — 自作スキル索引
+
+このファイルは `skill-authoring` が自動生成・追記する。起動時に毎回読み込まれ、
+発火 / 採用 / 削除 / 却下を追跡する。各スキル本文（`<name>/SKILL.md`）は発火時のみ読まれる。
+既製スキルの導入記録は別ファイル `SKILLS.md`（skill-suggestion 管理）にある。
+
+<!-- 追記形式: - [<name>](<name>/SKILL.md) — <description> [fired:YYYY-MM-DD / adopted:YYYY-MM-DD / deleted:- ] -->
+```
+
+### 追記 1 行の形式
+
+```
+- [monthly-sales-report](monthly-sales-report/SKILL.md) — 月次売上レポートの定型生成 [fired:2026-05-29 / adopted:2026-05-29 / deleted:-]
+```
+
+- 却下は `[fired:YYYY-MM-DD / rejected:YYYY-MM-DD (n) / cooldown_until:YYYY-MM-DD]` の形で残す。
+- リンクが symlink でなくコピーの場合は行末に `(copy)` を付す。
+
+---
+
+## セキュリティ境界
+
+- 生成スキルが同梱するスクリプトも、親の PII 検知フック（`hooks/pre-tool-use.js`）が **そのまま発火する**ことを前提にする。新規スキルが書き込み系ツールを呼んでも機密遮断は L1 フックで効く（[security-policies.md](../workflow/references/security-policies.md) §3）。
+- 生成スキルは新たな権限を獲得しない。利用できるツールは親 `.claude/settings.json` の `permissions`（allow / ask / deny）に従う。**スキル化は権限境界を広げない。**
+- スクリプトを同梱する場合は Node.js 単一実装とし、`ln -s` / `mkdir -p` / `cp` 等の POSIX コマンドを必須経路に置かない（クロスプラットフォーム実装規約 `cross-platform.md`、Mac / Windows 両対応）。
+- パスはホームディレクトリ環境変数（POSIX: `$HOME` / Windows: `%USERPROFILE%`）から解決する。symlink/コピーの作成は同梱 Node.js ヘルパーに委ねる。
+- 機密値（パスワード・トークン・個人情報）を SKILL.md 本文に直書きしない。「○○の認証情報を使う」等の **参照のみ** に留める。
+- `~/.belta/skills/` 配下は `.gitignore` 対象。リポジトリにコミットしない。
+
+## ファイル参照
+
+- 生成 SKILL.md の構成・frontmatter 雛形・description 設計指針: [references/skill-template.md](references/skill-template.md)
+- symlink/コピー作成・健全性確認ヘルパー（ディレクトリ対応）: [scripts/link-skill.js](scripts/link-skill.js)
+- 生成内容の品質補助: `skill-creator` スキル（Claude Code 標準）
+- 親の権限境界: [.claude/settings.json](../../.claude/settings.json)
+- テキスト指示で足りる繰り返し: [rule-learning](../rule-learning/SKILL.md)
+- 隔離コンテキストへ委譲できる領域: [agent-learning](../agent-learning/SKILL.md)
+- 既製スキルで賄える非効率作業: [skill-suggestion](../skill-suggestion/SKILL.md)

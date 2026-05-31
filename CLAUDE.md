@@ -40,7 +40,9 @@ Belta 社内向けワークフロー自動化エージェント（Claude Code Pl
 
 ### スキル（`skills/*/SKILL.md`）
 
-`workflow`（メイン分岐）/ `notion-schema`（DB 設計知識）/ `rule-learning`（発話→ルール自動蓄積）/ `agent-learning`（業務領域→専用 subagent 自動生成）/ `skill-suggestion`（新スキル提案）。`description` の発話トリガーで発火する。
+`workflow`（メイン分岐）/ `notion-schema`（DB 設計知識）/ `rule-learning`（発話→ルール自動蓄積）/ `agent-learning`（業務領域→専用 subagent 自動生成）/ `skill-suggestion`（既製スキルの探索・導入）/ `skill-authoring`（専門業務→専用スキルを新規自作。`~/.belta/skills/<name>/` 正本 → `~/.claude/skills/` へ symlink/コピー公開）。`description` の発話トリガーで発火する。
+
+> **パーソナライズ 4 機能の住み分け**: rule-learning（テキスト指示）→ agent-learning（隔離委譲する subagent）→ skill-suggestion（既製スキル導入）→ skill-authoring（専用スキル自作）。後者ほど侵襲的（自動発火し主コンテキストに載る）なので、skill-authoring は前 3 者で埋まらず専門業務が 3 回以上反復したときのみ発火する**最終手段（消去法ゲート）**。`.belta` 正本 → `.claude` 公開の symlink/コピー型は agent-learning と共通だが、agent は単一 `.md`・skill はディレクトリなので別ヘルパー `skills/skill-authoring/scripts/link-skill.js` を持つ。自作スキルの索引は `~/.belta/skills/AUTHORED.md`（skill-suggestion の `SKILLS.md` とは別ファイル）。
 
 ### コマンド（`commands/*.md`）
 

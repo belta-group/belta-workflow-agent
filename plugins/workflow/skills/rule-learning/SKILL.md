@@ -115,3 +115,4 @@ description: >
 - ルール frontmatter 雛形・RULES.md 初期テンプレート: [references/rule-template.md](references/rule-template.md)
 - 業務領域そのものの繰り返し（テキストに収まらない）: [agent-learning](../agent-learning/SKILL.md)
 - 既存スキルで賄えない非効率作業の繰り返し: [skill-suggestion](../skill-suggestion/SKILL.md)
+- 専門業務を専用スキルとして自作する（最終手段）: [skill-authoring](../skill-authoring/SKILL.md)
