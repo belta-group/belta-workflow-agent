@@ -2,17 +2,21 @@
 name: agent-learning
 description: >
   同一の業務領域が繰り返し現れたとき、その領域専用の Claude Code subagent を
-  `~/.belta/agents/` に生成し `~/.claude/agents/` へ symlink して標準 Agent ツールから
-  呼べる状態にする。直近 5 営業日の `~/.belta/notes/` に同じ業務領域への発話が 2 回以上
-  出たときに workflow スキルから委譲され、専用エージェント化を提案する。
+  専用フォルダ（~/my-agent）の `.claude/agents/` に直接生成し、そのフォルダで標準
+  Agent ツールから呼べる状態にする。直近 5 営業日の `~/.belta/notes/` に同じ業務領域への
+  発話が 2 回以上出たときに workflow スキルから委譲され、専用エージェント化を提案する。
 ---
 
 # 自動エージェント化（agent-learning）
 
 要件 5 の拡張。テキスト指示（[rule-learning](../rule-learning/SKILL.md)）に収まらない「**業務領域そのもの**」が繰り返し現れたら、その領域専用の subagent を生成し、以降は標準 `Agent` ツールから呼び出せるようにする。
 
-- 正本: `~/.belta/agents/<slug>.md`
-- 呼び出し用: `~/.claude/agents/<slug>.md`（正本への symlink。Windows 等で symlink 不可なら **コピー** にフォールバック）
+本プラグインは専用フォルダ（`~/my-agent`）限定（ローカルスコープ）で動くため、生成した subagent も **そのフォルダの `.claude/agents/` に直接置く** だけで、そのフォルダ内のセッションから自動的に `Agent` ツールへ載る。`~/.claude/`（グローバル）への symlink/コピー公開は **行わない**（ローカル限定方針と整合し、symlink 機構の保守も不要になる）。
+
+- 実体: `<agent_home>/.claude/agents/<slug>.md`（`<agent_home>` は専用フォルダの絶対パス。後述の方法で解決）
+- 索引: `~/.belta/agents/AGENTS.md`（発火・採用の追跡用。実体とは分離してホーム側に残す）
+
+> **`<agent_home>` の解決**: `node "${CLAUDE_PLUGIN_ROOT}/scripts/belta-init.js" get agent_home` で専用フォルダの絶対パスを得る。空（未設定）の場合は、いま開いている専用フォルダ＝プロジェクトルートに相対の `.claude/agents/` を使ってよい（このスキルは専用フォルダ内のセッションでのみ走るため、カレントが専用フォルダになっている）。
 
 ルール（テキスト）化で足りるものは rule-learning に、既存スキルで賄える非効率作業は [skill-suggestion](../skill-suggestion/SKILL.md) に回す。本スキルは **領域単位で独立した振る舞い・権限を持たせるべき** 繰り返しを扱う。
 
@@ -52,20 +56,14 @@ description: >
 
 > 「最近『○○』の作業が続いています。`<slug>` という専用エージェントにしておくと、次回から `Agent` ツールで一発で呼べます。作成しますか？」
 
-### Step 2-a: 承認 → 生成 + symlink + 記録
+### Step 2-a: 承認 → 生成 + 記録
 
-1. [references/agent-template.md](references/agent-template.md) の frontmatter 雛形と **モデル選択ポリシー（haiku / sonnet / inherit の 3 段）** に従い、`model` を業務カテゴリで出し分けて `~/.belta/agents/<slug>.md` を **Write ツールで生成**する。
+1. [references/agent-template.md](references/agent-template.md) の frontmatter 雛形と **モデル選択ポリシー（haiku / sonnet / inherit の 3 段）** に従い、`model` を業務カテゴリで出し分けて `<agent_home>/.claude/agents/<slug>.md` を **Write ツールで生成**する（`<agent_home>` は上記の方法で解決。専用フォルダ内なら相対 `.claude/agents/<slug>.md` でもよい）。
    - `tools` は Step 1 で絞った allow サブセットのみ。
    - `source_notes` に検知元の `notes/YYYY-MM-DD.md`（2 件以上）を記録する。
-2. symlink（不可ならコピー）を作成する。クロスプラットフォームのため Node.js ヘルパーを使う：
-
-   ```
-   node "${CLAUDE_PLUGIN_ROOT}/skills/agent-learning/scripts/link-agent.js" link <slug>
-   ```
-
-   - 出力 JSON の `mode` が `symlink` か `copy` かを確認する。`copy` の場合は正本を更新しても自動反映されない旨を `AGENTS.md` の備考に残す。
-3. インデックス `~/.belta/agents/AGENTS.md` に **fired / adopted** を記録する（後述）。
-4. 「`<slug>` を作成しました。次回から『○○して』と言えばこのエージェントに委譲します」と返す。
+   - symlink/コピーは不要。専用フォルダの `.claude/agents/` に置けば、そのフォルダのセッションで自動的に `Agent` ツールへ載る。
+2. インデックス `~/.belta/agents/AGENTS.md` に **fired / adopted** を記録する（後述）。
+3. 「`<slug>` を作成しました。次回からこの専用フォルダで『○○して』と言えばこのエージェントに委譲します」と返す。
 
 ### Step 2-b: 拒否 → rejected 記録 + 冷却
 
@@ -73,17 +71,13 @@ description: >
 
 ---
 
-## 採用後の継続追跡（起動時の symlink 健全性確認）
+## 採用後の継続追跡（起動時の実体存在確認）
 
-運営モード起動時、`AGENTS.md` に adopted 記録がある各エージェントについて、リンク先の健全性を確認する：
+運営モード起動時、`AGENTS.md` に adopted 記録がある各エージェントについて、実体ファイルが残っているかを確認する：
 
-```
-node "${CLAUDE_PLUGIN_ROOT}/skills/agent-learning/scripts/link-agent.js" check
-```
-
-- 出力は各 `<slug>` の `status`（`ok` / `deleted` / `broken`）。
-- `deleted`（`~/.claude/agents/<slug>.md` が消えている）を検知したら、`AGENTS.md` の該当行に `deleted_at:<YYYY-MM-DD>` を記録する（採用 → 削除の継続率メトリクス取得）。一度記録した deleted は再通知しない。
-- `broken`（symlink は在るが正本が消えた）は利用者に知らせ、再生成 or 行削除を確認する。
+- `<agent_home>/.claude/agents/<slug>.md` が存在するかを Read（または `node "${CLAUDE_PLUGIN_ROOT}/scripts/belta-init.js" get agent_home` で解決したパス配下の一覧）で確認する。
+- 実体が **消えている**（利用者が削除した）場合は、`AGENTS.md` の該当行に `deleted_at:<YYYY-MM-DD>` を記録する（採用 → 削除の継続率メトリクス取得）。一度記録した deleted は再通知しない。
+- 実体は在るが **frontmatter が壊れている**（`name`/`description` 欠落で Agent ツールに載らない）場合は利用者に知らせ、再生成 or 行削除を確認する。
 
 ---
 
@@ -111,7 +105,6 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/agent-learning/scripts/link-agent.js" check
 ```
 
 - 却下は `[fired:YYYY-MM-DD / rejected:YYYY-MM-DD (n) / cooldown_until:YYYY-MM-DD]` の形で残す。
-- リンクが symlink でなくコピーの場合は行末に `(copy)` を付す。
 
 ---
 
@@ -120,13 +113,13 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/agent-learning/scripts/link-agent.js" check
 - 生成 subagent の `tools` は親 `.claude/settings.json` の `allow` の **部分集合のみ**。`ask` / `deny` 相当の書き込み・破壊系を直接渡さない（多段階権限階層は Phase -1 では実装しない）。
 - 親の PII 検知フック（`hooks/pre-tool-use.js`）は **subagent 経由でも発火する**ことを前提にする。モデルや権限の選択は防御を肩代わりしない（[security-policies.md](../workflow/references/security-policies.md) §3）。
 - 生成 subagent がさらに子 subagent を作る連鎖は行わない。
-- パスはホームディレクトリ環境変数（POSIX: `$HOME` / Windows: `%USERPROFILE%`）から解決する。symlink/コピーの作成は同梱 Node.js ヘルパーに委ね、`ln -s` 等の POSIX コマンドを必須経路に置かない（Mac / Windows 両対応）。
-- `~/.belta/agents/` 配下は `.gitignore` 対象。リポジトリにコミットしない。
+- パスはホームディレクトリ環境変数（POSIX: `$HOME` / Windows: `%USERPROFILE%`）から解決する。実体は専用フォルダの `.claude/agents/` に **Write ツールで直接配置**するだけで、`ln -s` 等の OS 依存コマンドは使わない（Mac / Windows 両対応）。
+- 索引 `~/.belta/agents/AGENTS.md` はホーム側にあり `.gitignore` 対象。生成した subagent 実体は専用フォルダ `~/my-agent/.claude/agents/` 配下に置かれる（`/workflow-setup` が専用フォルダに `.gitignore` を用意し、誤コミットを防ぐ）。
 
 ## ファイル参照
 
 - frontmatter 雛形・モデル選択ポリシー: [references/agent-template.md](references/agent-template.md)
-- symlink/コピー作成・健全性確認ヘルパー: [scripts/link-agent.js](scripts/link-agent.js)
+- 専用フォルダのパス解決: [scripts/belta-init.js](../../scripts/belta-init.js)（`get agent_home`）
 - 親の権限 allowlist（tools サブセットの上限）: [.claude/settings.json](../../.claude/settings.json)
 - テキスト指示で足りる繰り返し: [rule-learning](../rule-learning/SKILL.md)
 - 既製スキルで賄える非効率作業: [skill-suggestion](../skill-suggestion/SKILL.md)

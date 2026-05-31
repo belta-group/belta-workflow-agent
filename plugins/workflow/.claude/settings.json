@@ -4,6 +4,8 @@
     "allow": [
       "Read",
       "Write(.belta/**)",
+      "Write(.claude/agents/**)",
+      "Write(.claude/skills/**)",
       "Bash(git status:*)",
       "Bash(git log:*)",
       "Bash(git diff:*)",

@@ -9,6 +9,7 @@
 // 使い方:
 //   node belta-init.js [init]                         初期化（既定動作）
 //   node belta-init.js init --owner-email a@b.jp --confidentiality 社外秘
+//   node belta-init.js init --agent-home <専用フォルダの絶対パス>
 //   node belta-init.js get <key>                      config.yaml の値を出力
 //   node belta-init.js set <key> <value>              config.yaml の値を更新
 //   共通オプション: --dir <path>（.belta のベースを上書き。既定は <home>/.belta）
@@ -30,6 +31,7 @@ let command = "init";
 let dirOverride = null;
 let ownerEmail = null;
 let confidentiality = null;
+let agentHome = null;
 const positional = [];
 
 for (let i = 0; i < argv.length; i++) {
@@ -37,6 +39,7 @@ for (let i = 0; i < argv.length; i++) {
   if (a === "--dir") dirOverride = argv[++i];
   else if (a === "--owner-email") ownerEmail = argv[++i];
   else if (a === "--confidentiality") confidentiality = argv[++i];
+  else if (a === "--agent-home") agentHome = argv[++i];
   else if (a === "get" || a === "set" || a === "init") command = a;
   else positional.push(a);
 }
@@ -87,6 +90,7 @@ const CONFIG_ORDER = [
   "created_at",
   "owner_email",
   "confidentiality",
+  "agent_home",
   "feature_rule_learning",
   "feature_agent_learning",
   "feature_skill_suggestion",
@@ -133,6 +137,9 @@ function doInit() {
     created_at: existing.created_at || nowIso(),
     owner_email: existing.owner_email || "",
     confidentiality: existing.confidentiality || "",
+    // 本プラグインを有効化した専用フォルダ（~/my-agent[-N]）の絶対パス。
+    // setup-agent-home.js が決めた値を /workflow-setup が渡す。ホーム側の安定アンカー。
+    agent_home: existing.agent_home || "",
     feature_rule_learning: existing.feature_rule_learning || "true",
     feature_agent_learning: existing.feature_agent_learning || "true",
     feature_skill_suggestion: existing.feature_skill_suggestion || "true",
@@ -146,6 +153,7 @@ function doInit() {
   // オンボーディング提供値で上書き（権威値）
   if (ownerEmail) merged.owner_email = ownerEmail;
   if (confidentiality) merged.confidentiality = confidentiality;
+  if (agentHome) merged.agent_home = agentHome;
 
   writeConfig(merged);
 
@@ -154,6 +162,7 @@ function doInit() {
   console.log(`  config: ${configPath}`);
   if (ownerEmail) console.log(`  owner_email = ${ownerEmail}`);
   if (confidentiality) console.log(`  confidentiality = ${confidentiality}`);
+  if (agentHome) console.log(`  agent_home = ${agentHome}`);
 }
 
 function doGet() {

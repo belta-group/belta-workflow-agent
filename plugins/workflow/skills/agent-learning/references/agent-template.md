@@ -1,7 +1,7 @@
 # 専用 subagent の生成雛形（agent-learning 用）
 
 `agent-learning` スキルが、同一業務領域を 5 営業日以内に 2 回検出したときに
-`~/.belta/agents/<slug>.md` を生成する際の **frontmatter 雛形** と **モデル選択ポリシー**。
+専用フォルダの `<agent_home>/.claude/agents/<slug>.md` を生成する際の **frontmatter 雛形** と **モデル選択ポリシー**。
 
 生成エージェントは親（`/workflow`）と同じモデルを無条件に継承するのではなく、
 **その subagent が担う業務の性質に応じて `model` を出し分ける**（コスト最適化）。

@@ -17,11 +17,14 @@ MCP 接頭辞のトラブルシュートで一定の判断が要るため、haik
 
 すでに `~/.belta/.onboarded` が存在する場合は「セットアップ済みです。やり直す場合はその旨を伝えてください」と確認してから進めてください。
 
+> **このエージェントは「専用フォルダ限定」で使います。** ホーム直下の専用フォルダ（`~/my-agent`）を作り、**そのフォルダでだけ**プラグインを有効化（ローカルスコープ）します。グローバル（全ディレクトリ）有効化は、業務と無関係なセッションでも作法が発火してしまうため避けます。インストール時に scope を選べる場合は **Local** を選ぶよう案内してください（CLI なら `/plugin install ... --scope local`）。誤ってグローバル有効化していても、このセットアップで専用フォルダのローカル有効化に付け替えられます。
+
 ## ゴール
 
-1. 利用者プロフィール（氏名・部署・主要業務・機密度・メール）を `~/.belta/profile.md` に保存する
-2. MCP 4 ツール（Notion / Slack / Google Drive / GitHub）の OAuth 接続を案内・検証する
-3. 完了したら `~/.belta/.onboarded` を作成し、once-only 判定を成立させる
+1. 専用フォルダ（`~/my-agent`、衝突時 `-2`…）を作成し、そのフォルダ限定でプラグインを有効化する
+2. 利用者プロフィール（氏名・部署・主要業務・機密度・メール）を `~/.belta/profile.md` に保存する
+3. MCP 4 ツール（Notion / Slack / Google Drive / GitHub）の OAuth 接続を案内・検証する
+4. 完了したら `~/.belta/.onboarded` を作成し、once-only 判定を成立させる。以降は **専用フォルダを開いて**使う
 
 ## 手順
 
@@ -39,15 +42,30 @@ MCP 接頭辞のトラブルシュートで一定の判断が要るため、haik
 
 > **必須ゲート（途中で打ち切らない）**: `AskUserQuestion` ツールは 1 回で最大 4 問までしか出せないため、上記 5 項目を 1〜2 問ずつに分けて**複数回**呼び出し、5 項目すべての回答（＋メール確認）が揃ってから Step 2 へ進むこと。氏名・部署だけ聞いて Submit するのは誤り。最後に取得した 5 項目を箇条書きで読み上げ、欠けが無いことを利用者に確認してから次へ進む。
 
-### Step 2. `.belta` 初期化 + プロフィール保存
+### Step 2. 専用フォルダの作成 + ローカル有効化
+
+このエージェント専用のフォルダを作り、**そのフォルダ限定**でプラグインを有効化します。次を実行（Node.js 実装、Mac / Windows 両対応。冪等。既に自分の専用フォルダがあれば再利用し、増殖させません）：
+
+```
+node "${CLAUDE_PLUGIN_ROOT}/scripts/setup-agent-home.js"
+```
+
+- ホーム直下に `~/my-agent`（既に他用途で使われていれば `my-agent-2`, `my-agent-3`…）を作成し、その `<folder>/.claude/settings.local.json` に `enabledPlugins`（このプラグイン）と `extraKnownMarketplaces` を冪等マージする。これで**そのフォルダ配下で Claude Code を起動したときだけ**プラグインが有効になる。
+- 出力は JSON（`{ "ok": true, "path": "<専用フォルダの絶対パス>", ... }`）。この **`path` を以降のステップで使う**ので控えておく。
+- 基点やフォルダ名を変えたい場合は `--base <dir>` / `--name <folder>` / `--dir <絶対パス>`。
+
+返ってきた `path`（＝専用フォルダの絶対パス。以下 `<AGENT_HOME>`）を、次の `.belta` 初期化で記録します。
+
+### Step 3. `.belta` 初期化 + プロフィール保存
 
 まず個人データ領域 `~/.belta/`（`notes/` `inbox/` `todos/` と機械可読設定 `config.yaml`）を初期化します。次を実行（Node.js 実装、Mac / Windows 両対応。atomic write + POSIX では 0o600。冪等で既存値は壊しません）：
 
 ```
-node "${CLAUDE_PLUGIN_ROOT}/scripts/belta-init.js" init --owner-email <メール> --confidentiality <公開|社外秘|極秘>
+node "${CLAUDE_PLUGIN_ROOT}/scripts/belta-init.js" init --owner-email <メール> --confidentiality <公開|社外秘|極秘> --agent-home "<AGENT_HOME>"
 ```
 
-- `config.yaml` には `owner_email` / `confidentiality` / 自動化機能のフラグ（rule/agent/skill）が入る。後から `belta-init.js set <key> <value>` で更新できる。
+- `config.yaml` には `owner_email` / `confidentiality` / `agent_home`（専用フォルダの絶対パス）/ 自動化機能のフラグ（rule/agent/skill）が入る。後から `belta-init.js set <key> <value>` で更新できる。
+- `agent_home` は、後で `agent-learning` / `skill-authoring` が生成物の置き場所（`<AGENT_HOME>/.claude/agents`・`.claude/skills`）を解決するために使う、ホーム側の安定アンカー。
 - ベースを変えたい場合は `--dir <path>`。既定はホームの `.belta`（POSIX: `$HOME` / Windows: `%USERPROFILE%`）。
 
 次に、収集内容を `~/.belta/profile.md`（人間可読の正本）に Write ツールで書き込みます（ディレクトリは初期化済み）。フィールド定義は [references/profile-template.md](../skills/workflow/references/profile-template.md) を参照。
@@ -72,7 +90,7 @@ created_at: <YYYY-MM-DD>
 
 > `~/.belta/` は `.gitignore` で除外済み。個人データはリポジトリにコミットしないこと。
 
-### Step 3. MCP 4 ツール接続（OAuth ベース・PAT/API キー手動コピペ不要）
+### Step 4. MCP 4 ツール接続（OAuth ベース・PAT/API キー手動コピペ不要）
 
 Step 1 で選んだツールのみ案内すればよい。
 
@@ -88,43 +106,44 @@ Step 1 で選んだツールのみ案内すればよい。
 - `gh` 未導入なら、まず `node "${CLAUDE_PLUGIN_ROOT}/scripts/ensure-gh.js"` を実行する。OS 標準パッケージマネージャ（macOS: Homebrew / Windows: winget）で自動導入を試み、結果を JSON（`ok` / `installed` / `message`）で返す。導入済みなら何もしない冪等動作。自動導入できない環境では `message` の手動導入手順を案内する。
 - ブラウザ操作系が未インストールの場合はその旨を案内する。
 
-### Step 4. permission allowlist の適用（フォールバック）
+### Step 5. permission allowlist の適用（専用フォルダへ）
 
-このプラグインは権限ルール（allow / ask / deny）を同梱の `.claude/settings.json` で配布する。プラグイン同梱 settings がインストール先に自動マージされる環境ではこのステップは不要だが、マージが効かない環境向けに**利用者の settings.json へ冪等マージする**フォールバックを用意している。
+このプラグインは権限ルール（allow / ask / deny）を同梱の `.claude/settings.json` で配布する。プラグイン同梱 settings がインストール先に自動マージされる環境ではこのステップは不要だが、マージが効かない環境向けに**専用フォルダの settings.local.json へ冪等マージする**フォールバックを用意している。
 
-次を実行して適用する（Node.js 実装、Mac / Windows 両対応。既存設定は保持し、重複追加しない）：
+次を実行して適用する（Node.js 実装、Mac / Windows 両対応。既存設定は保持し、重複追加しない）。`<AGENT_HOME>` は Step 2 で得た専用フォルダの絶対パス：
 
 ```
-node "${CLAUDE_PLUGIN_ROOT}/scripts/apply-permissions.js"
+node "${CLAUDE_PLUGIN_ROOT}/scripts/apply-permissions.js" --target "<AGENT_HOME>/.claude/settings.local.json"
 ```
 
-- 適用先は**プラグインを有効化したスコープに自動で揃う**（既定）。project スコープで入れたフォルダで実行すれば project の `.claude/settings.json` に、user（グローバル）で入れていればホームの `.claude/settings.json`（POSIX: `$HOME` / Windows: `%USERPROFILE%`）に適用される。
-- 明示したい場合は `--scope user|project|local`、特定ファイルに入れるなら `--target <path>` を渡す（優先順は `--target` > `--scope` > 自動判定）。
+- `--target` で **専用フォルダのローカル設定**（プラグインを有効化したのと同じファイル）へ適用する。これで権限も「専用フォルダ限定」に揃う。
 - 事前に差分だけ見たい場合は `--dry-run` を付ける。
-- 適用後、`Bash(rm -rf *)` が deny、書き込み系（Slack 送信・PR 作成等）が ask、読み取り系（`gh pr list` 等）が allow になることを確認する（[references/security-policies.md](../skills/workflow/references/security-policies.md) §6）。
+- 適用後、`Bash(rm -rf *)` が deny、書き込み系（Slack 送信・PR 作成等）が ask、読み取り系（`gh pr list` 等）や生成物の書き込み（`Write(.claude/agents/**)`・`Write(.claude/skills/**)`）が allow になることを確認する（[references/security-policies.md](../skills/workflow/references/security-policies.md) §6）。
 
-> **MCP 接頭辞の注意**: `.claude/settings.json` の MCP ルールは `mcp__claude_ai_<Service>__*` を前提にしている。`/mcp` で列挙される実名が異なる場合は、その接頭辞に合わせて settings.json を調整する。PII 検知フック（`hooks/pre-tool-use.js`）は接頭辞に依存しないサフィックス判定なので、書き込み系の機密遮断はこの調整に関わらず機能する。
+> **MCP 接頭辞の注意**: `.claude/settings.json` の MCP ルールは `mcp__claude_ai_<Service>__*` を前提にしている。`/mcp` で列挙される実名が異なる場合は、その接頭辞に合わせて settings.local.json を調整する。PII 検知フック（`hooks/pre-tool-use.js`）は接頭辞に依存しないサフィックス判定なので、書き込み系の機密遮断はこの調整に関わらず機能する。
 
-### Step 4.5. marketplace 自動更新の有効化（推奨）
+### Step 5.5. marketplace 自動更新の有効化（推奨）
 
 プラグインを更新（作者が push + version up）したぶんを、利用者が手動更新せずに **Claude Code 起動時へ自動で届く**ようにする。次を実行（Node.js 実装、Mac / Windows 両対応。既存設定は保持し冪等）：
 
 ```
-node "${CLAUDE_PLUGIN_ROOT}/scripts/apply-auto-update.js"
+node "${CLAUDE_PLUGIN_ROOT}/scripts/apply-auto-update.js" --target "<AGENT_HOME>/.claude/settings.local.json"
 ```
 
-- 利用者の settings.json の `extraKnownMarketplaces.<marketplace>` に `autoUpdate: true` を冪等マージする（auto-update の正規の保存先。TUI の「Enable auto-update」と同じ場所）。**権限（`permissions`）には一切触れない**ので Step 4 とは別物。
-- marketplace 名と GitHub repo は同梱の `marketplace.json` から自動取得する。適用先は Step 4 と同じスコープ（自動判定／`--scope`／`--target`）。事前確認は `--dry-run`。
+- 専用フォルダの settings.local.json の `extraKnownMarketplaces.<marketplace>` に `autoUpdate: true` を冪等マージする（auto-update の正規の保存先。TUI の「Enable auto-update」と同じ場所）。**権限（`permissions`）には一切触れない**ので Step 5 とは別物。
+- marketplace 名と GitHub repo は同梱の `marketplace.json` から自動取得する。事前確認は `--dry-run`。
 - 自動更新を望まない利用者には、このステップを飛ばしてよい旨を伝える（後から `/plugin` → Marketplaces → Enable auto-update でも有効化できる）。
 - **補足（作者向け）**: auto-update は「新しい版があれば取得」する仕組みのため、作者が修正時に `plugin.json` と `marketplace.json` の `version` を上げて push しないと利用者側に更新が届かない点に注意。
 
-### Step 5. 完了処理（once-only 確定）
+### Step 6. 完了処理（once-only 確定）
 
 すべて完了したら state file `<home>/.belta/.onboarded` を作成します。これにより次回以降のセッションで `SessionStart` フックがセットアップ案内を再注入しなくなります。
 
 state file は **Write ツールで空ファイルとして作成** してください（親ディレクトリが無ければ作成されます）。`mkdir` / `touch` 等の POSIX コマンドは Windows で動かないため必須経路に使いません。ホームディレクトリはシェルの `~` 展開に頼らず、環境変数（POSIX: `$HOME` / Windows: `%USERPROFILE%`）から解決します。
 
-最後に「セットアップ完了。以降は普通に話しかければ Notion / Slack / GitHub / Google Drive に自動で振り分けます」と案内して終了。
+最後に、**専用フォルダで開き直す**よう必ず案内して終了します（このプラグインはそのフォルダ限定で有効なため）：
+
+> セットアップ完了です。次回からは **`<AGENT_HOME>`（例: `~/my-agent`）を Claude Code で開いて** 話しかけてください。そのフォルダの中でだけ、内容に応じて Notion / Slack / GitHub / Google Drive へ自動で振り分けます。使うほどあなた専用にチューニングされ、覚えた専用エージェント/スキルもそのフォルダに貯まっていきます。
 
 ## 注意
 

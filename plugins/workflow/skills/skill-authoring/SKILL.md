@@ -3,7 +3,7 @@ name: skill-authoring
 description: >
   繰り返し現れる専門業務を、利用者専用の新しいスキルとして自作（authoring）する。
   既存スキルの導入（skill-suggestion）ではなく、手元に無い手順・専門知識を SKILL.md
-  として新規生成し `~/.belta/skills/<name>/` に置いて `~/.claude/skills/` へ公開する。
+  として新規生成し、専用フォルダ（~/my-agent）の `.claude/skills/<name>/` に直接置く。
   rule / agent / 既存スキル導入のどれでも賄えない専門業務が 3 回以上反復したとき、
   workflow スキルから委譲され、スキル化を提案する。「これスキルにして」「いつもの手順を
   道具にして」等の明示依頼でも起動する。
@@ -13,10 +13,14 @@ description: >
 
 パーソナライズ 4 機能の最後の砦。利用者の **専門性のある繰り返し業務** を、その業務専用の **新しいスキル** として自作する。`skill-suggestion` が「世にある既製品を探して導入する」のに対し、本スキルは「**手元の業務に合わせた専用の道具を新しくあつらえる**」点で役割が分かれる。
 
-- 正本: `~/.belta/skills/<name>/`（`SKILL.md` + 必要なら `references/` `scripts/`）
-- 呼び出し用: `~/.claude/skills/<name>/`（正本へのディレクトリ symlink。Windows 等で不可なら **再帰コピー** にフォールバック）
+本プラグインは専用フォルダ（`~/my-agent`）限定（ローカルスコープ）で動くため、自作スキルも **そのフォルダの `.claude/skills/` に直接置く** だけで、そのフォルダ内のセッションで自動的に発火対象になる。`~/.claude/`（グローバル）へのディレクトリ symlink/コピー公開は **行わない**（ローカル限定方針と整合し、symlink 機構の保守も不要になる）。
 
-> 生成 SKILL.md の中身（記述・description 設計）は Claude Code 標準の `skill-creator` スキルに委譲してよい。本スキルは「**いつ自作すべきか（消去法ゲート）**」「**どこに置き公開するか**」「**索引と継続追跡**」を司る。
+- 実体: `<agent_home>/.claude/skills/<name>/`（`SKILL.md` + 必要なら `references/` `scripts/`。`<agent_home>` は専用フォルダの絶対パス）
+- 索引: `~/.belta/skills/AUTHORED.md`（発火・採用の追跡用。実体とは分離してホーム側に残す。既製スキルの `SKILLS.md` と同居）
+
+> **`<agent_home>` の解決**: `node "${CLAUDE_PLUGIN_ROOT}/scripts/belta-init.js" get agent_home` で専用フォルダの絶対パスを得る。空（未設定）なら、いま開いている専用フォルダ＝プロジェクトルートに相対の `.claude/skills/` を使ってよい。
+
+> 生成 SKILL.md の中身（記述・description 設計）は Claude Code 標準の `skill-creator` スキルに委譲してよい。本スキルは「**いつ自作すべきか（消去法ゲート）**」「**どこに置くか**」「**索引と継続追跡**」を司る。
 
 ## 位置づけ：これは「最終手段」
 
@@ -59,22 +63,16 @@ description: >
 
 > 「最近『○○』の作業が 3 回続いていて、ルールにもエージェントにも既存スキルにも収まりません。`<name>` という専用スキルにしておくと、次回から○○の場面で自動的にこの手順で対応できます。作成しますか？」
 
-### Step 2-a: 承認 → 生成 + 公開 + 記録
+### Step 2-a: 承認 → 生成 + 記録
 
-1. [references/skill-template.md](references/skill-template.md) の構成に沿って `~/.belta/skills/<name>/SKILL.md` を **Write ツールで生成** する。中身の質は `skill-creator` スキルに委譲してよい。
+1. [references/skill-template.md](references/skill-template.md) の構成に沿って `<agent_home>/.claude/skills/<name>/SKILL.md` を **Write ツールで生成** する（`<agent_home>` は上記の方法で解決。専用フォルダ内なら相対 `.claude/skills/<name>/SKILL.md` でもよい）。中身の質は `skill-creator` スキルに委譲してよい。
    - **`description` は狭く具体的に。** 自動発火の精度はここで決まる。広すぎる description は誤発火の元（位置づけ参照）。発火条件を限定し、業務ドメインの語を入れる。
    - 必要に応じて `references/`（参照知識）・`scripts/`（補助スクリプト）を同梱する。**スクリプトを置く場合は必ず Node.js 単一実装にし、`mkdir -p` / `cp` / `ln -s` 等の OS 依存コマンドを必須経路に置かない**（プラグインのクロスプラットフォーム実装規約 `cross-platform.md` に準拠）。
    - `source_notes` に検知元の `notes/YYYY-MM-DD.md`（3 件以上）を記録する。
-2. ディレクトリ symlink（不可なら再帰コピー）で公開する。クロスプラットフォームのため Node.js ヘルパーを使う：
-
-   ```
-   node "${CLAUDE_PLUGIN_ROOT}/skills/skill-authoring/scripts/link-skill.js" link <name>
-   ```
-
-   - 出力 JSON の `mode` が `symlink` か `copy` かを確認する。`copy` の場合は正本を更新しても自動反映されない旨を `AUTHORED.md` の備考に残す。
-3. 索引 `~/.belta/skills/AUTHORED.md` に **fired / adopted** を記録する（後述）。
-4. **有効化確認**: 利用可能スキル一覧（または `/plugin`）に `<name>` が現れることを確認する。
-5. 「`<name>` を作成しました。次回から○○の場面でこのスキルが働きます」と返す。
+   - symlink/コピーは不要。専用フォルダの `.claude/skills/` に置けば、そのフォルダのセッションで自動的に発火対象になる。
+2. 索引 `~/.belta/skills/AUTHORED.md` に **fired / adopted** を記録する（後述）。
+3. **有効化確認**: 利用可能スキル一覧（または `/plugin`）に `<name>` が現れることを確認する。専用フォルダで開き直さないと現れない場合はその旨を案内する。
+4. 「`<name>` を作成しました。次回からこの専用フォルダで○○の場面でこのスキルが働きます」と返す。
 
 ### Step 2-b: 拒否 → rejected 記録 + 冷却
 
@@ -82,17 +80,13 @@ description: >
 
 ---
 
-## 採用後の継続追跡（起動時のリンク健全性確認）
+## 採用後の継続追跡（起動時の実体存在確認）
 
-運営モード起動時、`AUTHORED.md` に adopted 記録がある各スキルについて、公開先の健全性を確認する：
+運営モード起動時、`AUTHORED.md` に adopted 記録がある各スキルについて、実体ディレクトリが残っているかを確認する：
 
-```
-node "${CLAUDE_PLUGIN_ROOT}/skills/skill-authoring/scripts/link-skill.js" check
-```
-
-- 出力は各 `<name>` の `status`（`ok` / `deleted` / `broken`）と `mode`（`symlink` / `copy`）。
-- `deleted`（`~/.claude/skills/<name>/` が消えている）を検知したら、`AUTHORED.md` の該当行に `deleted_at:<YYYY-MM-DD>` を記録する（採用 → 削除の継続率メトリクス）。一度記録した deleted は再通知しない。
-- `broken`（公開先は在るが正本の `SKILL.md` が壊れている / 消えた）は利用者に知らせ、再生成 or 行削除を確認する。
+- `<agent_home>/.claude/skills/<name>/SKILL.md` が存在するかを Read（または `belta-init.js get agent_home` で解決したパス配下の一覧）で確認する。
+- 実体が **消えている**（利用者が削除した）場合は、`AUTHORED.md` の該当行に `deleted_at:<YYYY-MM-DD>` を記録する（採用 → 削除の継続率メトリクス）。一度記録した deleted は再通知しない。
+- 実体は在るが **`SKILL.md` の frontmatter が壊れている**（`name`/`description` 欠落で発火しない）場合は利用者に知らせ、再生成 or 行削除を確認する。
 
 ---
 
@@ -121,7 +115,6 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/skill-authoring/scripts/link-skill.js" check
 ```
 
 - 却下は `[fired:YYYY-MM-DD / rejected:YYYY-MM-DD (n) / cooldown_until:YYYY-MM-DD]` の形で残す。
-- リンクが symlink でなくコピーの場合は行末に `(copy)` を付す。
 
 ---
 
@@ -130,14 +123,14 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/skill-authoring/scripts/link-skill.js" check
 - 生成スキルが同梱するスクリプトも、親の PII 検知フック（`hooks/pre-tool-use.js`）が **そのまま発火する**ことを前提にする。新規スキルが書き込み系ツールを呼んでも機密遮断は L1 フックで効く（[security-policies.md](../workflow/references/security-policies.md) §3）。
 - 生成スキルは新たな権限を獲得しない。利用できるツールは親 `.claude/settings.json` の `permissions`（allow / ask / deny）に従う。**スキル化は権限境界を広げない。**
 - スクリプトを同梱する場合は Node.js 単一実装とし、`ln -s` / `mkdir -p` / `cp` 等の POSIX コマンドを必須経路に置かない（クロスプラットフォーム実装規約 `cross-platform.md`、Mac / Windows 両対応）。
-- パスはホームディレクトリ環境変数（POSIX: `$HOME` / Windows: `%USERPROFILE%`）から解決する。symlink/コピーの作成は同梱 Node.js ヘルパーに委ねる。
+- パスはホームディレクトリ環境変数（POSIX: `$HOME` / Windows: `%USERPROFILE%`）から解決する。実体は専用フォルダの `.claude/skills/` に **Write ツールで直接配置**するだけで、symlink/コピーは作らない。
 - 機密値（パスワード・トークン・個人情報）を SKILL.md 本文に直書きしない。「○○の認証情報を使う」等の **参照のみ** に留める。
-- `~/.belta/skills/` 配下は `.gitignore` 対象。リポジトリにコミットしない。
+- 索引 `~/.belta/skills/AUTHORED.md` はホーム側で `.gitignore` 対象。自作スキル実体は専用フォルダ `~/my-agent/.claude/skills/` 配下に置かれる（`/workflow-setup` が専用フォルダに `.gitignore` を用意し、誤コミットを防ぐ）。
 
 ## ファイル参照
 
 - 生成 SKILL.md の構成・frontmatter 雛形・description 設計指針: [references/skill-template.md](references/skill-template.md)
-- symlink/コピー作成・健全性確認ヘルパー（ディレクトリ対応）: [scripts/link-skill.js](scripts/link-skill.js)
+- 専用フォルダのパス解決: [scripts/belta-init.js](../../scripts/belta-init.js)（`get agent_home`）
 - 生成内容の品質補助: `skill-creator` スキル（Claude Code 標準）
 - 親の権限境界: [.claude/settings.json](../../.claude/settings.json)
 - テキスト指示で足りる繰り返し: [rule-learning](../rule-learning/SKILL.md)

@@ -1,17 +1,17 @@
 # 自作スキルの生成雛形（skill-authoring 用）
 
-`skill-authoring` スキルが、消去法ゲートを通過した専門業務を `~/.belta/skills/<name>/`
-に新規生成する際の **ディレクトリ構成**・**SKILL.md frontmatter 雛形**・**description 設計指針**。
+`skill-authoring` スキルが、消去法ゲートを通過した専門業務を専用フォルダの
+`<agent_home>/.claude/skills/<name>/` に新規生成する際の **ディレクトリ構成**・**SKILL.md frontmatter 雛形**・**description 設計指針**。
 
 中身の記述品質は Claude Code 標準の `skill-creator` スキルに委譲してよい。本雛形は
-Belta プラグインの規約（配置・公開・クロスプラットフォーム）に合わせるための最小要件を定める。
+Belta プラグインの規約（配置・クロスプラットフォーム）に合わせるための最小要件を定める。
 
 ---
 
 ## ディレクトリ構成
 
 ```
-~/.belta/skills/<name>/
+<agent_home>/.claude/skills/<name>/
 ├── SKILL.md            # 必須。frontmatter + 手順本文
 ├── references/         # 任意。参照知識（発火時に必要時だけ読まれる）
 │   └── *.md
@@ -19,7 +19,7 @@ Belta プラグインの規約（配置・公開・クロスプラットフォ�
     └── *.js
 ```
 
-- `<name>` は kebab-case。`AUTHORED.md` のキー・公開先 `~/.claude/skills/<name>/` と一致させる。
+- `<name>` は kebab-case。`~/.belta/skills/AUTHORED.md`（索引）のキーと一致させる。`<agent_home>` は専用フォルダの絶対パス（`belta-init.js get agent_home` で解決）。
 - `references/` `scripts/` は不要なら作らない。**最小構成は `SKILL.md` 1 枚**。
 
 ---

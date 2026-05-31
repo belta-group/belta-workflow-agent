@@ -29,9 +29,11 @@ Belta 社内向けワークフロー自動化エージェント（Claude Code Pl
 
 ユーザの業務発話を受け、Notion / Slack / GitHub / Google Drive のうち最適なツールへ分岐する。中核は **フック・スキル・コマンド** の 3 層。
 
+> **運用モデル（最重要）**: このプラグインは **ホーム直下の専用フォルダ（`~/my-agent`、衝突時 `-2`…）限定（ローカルスコープ）でだけ有効化する** ことを既定とする。`/plugin install` の CLI 既定が User スコープ（全ディレクトリ発火）で、不慣れな利用者が業務無関係なセッションでも作法を発火させてしまう footgun を避けるため。`/workflow-setup`（`scripts/setup-agent-home.js`）が専用フォルダを作り、その `<folder>/.claude/settings.local.json` に `enabledPlugins` + `extraKnownMarketplaces` を冪等マージして局所有効化する。データ配置は **ハイブリッド**：機密データ（profile・notes・audit・config・rules）はホームの `~/.belta/`、自動生成される subagent / skill の**実体**は `<agent_home>/.claude/agents`・`.claude/skills`（索引 AGENTS.md / AUTHORED.md / SKILLS.md はホームに残す）。専用フォルダの絶対パスは `~/.belta/config.yaml` の `agent_home` に記録する。
+
 ### フック（`hooks/hooks.json` で登録、すべて Node.js 単一実装）
 
-- **`session-start.js`（SessionStart）** — 初回オンボーディングの once-only 自動起動。Claude Code にインストール時フックが無いための代替。`~/.belta/.onboarded` があれば無出力で終了、無ければ `additionalContext` で `/workflow-setup` へ誘導する。
+- **`session-start.js`（SessionStart）** — 2 つの追加コンテキストを必要時に注入。(A) 初回オンボーディングの once-only 自動起動（`~/.belta/.onboarded` が無ければ `/workflow-setup` へ誘導）。(B) **グローバル誤有効化の警告網**：`~/.claude/settings.json` の `enabledPlugins` に本プラグインがあれば（＝ユーザースコープで全ディレクトリ発火する状態）「ローカル限定運用を推奨」と警告し `/workflow-setup` での付け替えを促す。**警告のみ**で利用者設定は書き換えない（自動解除はしない）。どちらも該当しなければ無出力で終了。
 - **`pre-tool-use.js`（PreToolUse）** — 外部送信前の PII / 機密検知。`hooks.json` の matcher で対象ツール（`Bash` / Slack・Notion・GDrive の書き込み系）に絞ったうえで、コード内でも書き込み系か再判定する。マイナンバー（12桁）・クレジットカード（Luhn）・メール一括（ユニーク5件以上）・機密ラベル・パスワードリテラルを検知すると `permissionDecision: "deny"` でブロック。読み取り系・非該当は無出力で素通しし通常 permission に委ねる。
 - **`token-usage.js`（Stop）** — トランスクリプトの usage を集計し、**セッション 1 ファイル**（`~/.belta/audit/tokens/<session_id>.json`）に atomic に**上書き**保存（append しないので二重計上しない）。`scripts/aggregate-token-usage.js` がこの配下を合算する。
 - **`notes-record.js`（Stop）** — トランスクリプトから「その日の利用者依頼」を機械抽出し、`~/.belta/notes/<YYYY-MM-DD>.md` に **1 セッション 1 行で upsert**（`[session:<id>]` 行を在れば置換／無ければ追記。LLM が書いた他行は保全）。反復検知（`rule-learning` / `agent-learning`）の土台となる notes 履歴を、LLM 任せの自動記録が漏れても確定的に残すための下支え。あわせて保持期間（既定 14 日・`config.yaml` の `notes_retention_days`、下限 7）を過ぎた**日次ログのみ**削除する（トピックノート `kebab-case.md` は残す）。
@@ -40,21 +42,21 @@ Belta 社内向けワークフロー自動化エージェント（Claude Code Pl
 
 ### スキル（`skills/*/SKILL.md`）
 
-`workflow`（メイン分岐）/ `notion-schema`（DB 設計知識）/ `rule-learning`（発話→ルール自動蓄積）/ `agent-learning`（業務領域→専用 subagent 自動生成）/ `skill-suggestion`（既製スキルの探索・導入）/ `skill-authoring`（専門業務→専用スキルを新規自作。`~/.belta/skills/<name>/` 正本 → `~/.claude/skills/` へ symlink/コピー公開）。`description` の発話トリガーで発火する。
+`workflow`（メイン分岐）/ `notion-schema`（DB 設計知識）/ `rule-learning`（発話→ルール自動蓄積）/ `agent-learning`（業務領域→専用 subagent 自動生成）/ `skill-suggestion`（既製スキルの探索・導入）/ `skill-authoring`（専門業務→専用スキルを新規自作）。`description` の発話トリガーで発火する。
 
-> **パーソナライズ 4 機能の住み分け**: rule-learning（テキスト指示）→ agent-learning（隔離委譲する subagent）→ skill-suggestion（既製スキル導入）→ skill-authoring（専用スキル自作）。後者ほど侵襲的（自動発火し主コンテキストに載る）なので、skill-authoring は前 3 者で埋まらず専門業務が 3 回以上反復したときのみ発火する**最終手段（消去法ゲート）**。`.belta` 正本 → `.claude` 公開の symlink/コピー型は agent-learning と共通だが、agent は単一 `.md`・skill はディレクトリなので別ヘルパー `skills/skill-authoring/scripts/link-skill.js` を持つ。自作スキルの索引は `~/.belta/skills/AUTHORED.md`（skill-suggestion の `SKILLS.md` とは別ファイル）。
+> **パーソナライズ 4 機能の住み分け**: rule-learning（テキスト指示）→ agent-learning（隔離委譲する subagent）→ skill-suggestion（既製スキル導入）→ skill-authoring（専用スキル自作）。後者ほど侵襲的（自動発火し主コンテキストに載る）なので、skill-authoring は前 3 者で埋まらず専門業務が 3 回以上反復したときのみ発火する**最終手段（消去法ゲート）**。agent-learning（subagent 単一 `.md`）も skill-authoring（skill ディレクトリ）も、生成物の**実体を専用フォルダ `<agent_home>/.claude/agents`・`.claude/skills` へ直接 Write** する（ローカル限定方針と整合。`~/.claude/` へ symlink 公開していた旧方式と専用の link ヘルパーは廃止した）。索引はホーム側に残す：`~/.belta/agents/AGENTS.md`・`~/.belta/skills/AUTHORED.md`（skill-suggestion の `SKILLS.md` とは別ファイル）。生成物実体を `.claude/agents`・`.claude/skills` に置くだけでそのフォルダのセッションから自動ロードされる前提（公式ドキュメント未明記のため実機検証ゲート対象。不成立なら `~/.claude/` への公開へ戻すフォールバック）。
 
 ### コマンド（`commands/*.md`）
 
-`/workflow`（エントリポイント、`workflow` スキルを呼ぶ）/ `/workflow-setup`（5問オンボーディング → `scripts/belta-init.js` 実行 → `~/.belta/.onboarded` 作成）。
+`/workflow`（エントリポイント、`workflow` スキルを呼ぶ）/ `/workflow-setup`（専用フォルダ作成 + ローカル有効化 → 5問オンボーディング → `scripts/belta-init.js` 実行 → `~/.belta/.onboarded` 作成 → 専用フォルダで開き直す案内）。
 
 ### スクリプト（`scripts/*.js`）
 
-`belta-init.js`（`~/.belta/` 構造と `profile.json` 雛形を冪等生成）/ `apply-permissions.js`（同梱 `.claude/settings.json` の permissions を、プラグインが有効化されているスコープと同じ settings.json（既定は自動判定。`--scope user|project|local` / `--target` で上書き可）へ重複なしマージするフォールバック）/ `apply-auto-update.js`（marketplace の自動更新を先回りで有効化。利用者 settings.json の `extraKnownMarketplaces.<marketplace>` に `autoUpdate: true` を冪等マージする。marketplace 名/repo は同梱 `marketplace.json` から自動取得、適用先スコープは `apply-permissions.js` と同一ロジック。**`permissions` には触れない**＝権限境界の権威ソースとは別物）。
+`setup-agent-home.js`（**新規**。専用フォルダ `~/my-agent[-N]` を衝突回避で作成し、`<folder>/.claude/settings.local.json` に `enabledPlugins` + `extraKnownMarketplaces` を冪等マージしてローカル有効化。`.gitignore` も冪等生成。選んだ絶対パスを JSON で返す。冪等：既存の自分の専用フォルダは再利用し増殖させない）/ `belta-init.js`（`~/.belta/` 構造と `config.yaml` を冪等生成。`agent_home` キーに専用フォルダの絶対パスを記録）/ `apply-permissions.js`（同梱 `.claude/settings.json` の permissions を、`--target <folder>/.claude/settings.local.json` で専用フォルダのローカル設定へ重複なしマージするフォールバック。`--scope user|project|local` / 自動判定も可）/ `apply-auto-update.js`（marketplace の自動更新を先回りで有効化。`extraKnownMarketplaces.<marketplace>` に `autoUpdate: true` を冪等マージ。適用先は同じく `--target` で専用フォルダへ。**`permissions` には触れない**＝権限境界の権威ソースとは別物）。
 
 ### ユーザデータと権限
 
-- 実行時の個人データはすべて利用者ホームの **`~/.belta/`** 配下（`profile.json` / `rules/` / `agents/` / `audit/`）に置く。リポジトリには含めない。
+- 実行時の個人データは **ハイブリッド配置**：機密データ（`profile.md` / `config.yaml` / `rules/` / `notes/` / `inbox/` / `todos/` / `audit/`）は利用者ホームの **`~/.belta/`** 配下、自動生成 subagent / skill の実体は専用フォルダ **`<agent_home>/.claude/agents`・`.claude/skills`**。どちらもリポジトリには含めない（`~/.belta/` は `.gitignore`、専用フォルダは setup が `.gitignore` を生成）。
 - 権限境界の**単一の権威ソースは `plugins/workflow/.claude/settings.json` の `permissions`**（読み取り=allow / 書き込み=ask / 破壊的操作=deny）。`plugin.json` には permissions フィールドを置かない（プラグインマニフェストの機能ではないため）。プラグイン同梱 settings が自動マージされない環境では `apply-permissions.js` がこの権威ソースを利用者の settings.json へ反映する。**権限を変えるときはこの 1 ファイルだけを編集する。**
 - 認証は全て OAuth ベース（PAT / API キーの平文保存をしない）。GitHub のみ MCP を置かず `gh` CLI を Bash 経由で呼ぶ。
 
@@ -77,7 +79,7 @@ cd docs && npm install && npm run docs:dev   # ローカルプレビュー
 npm run docs:build                            # ビルド
 ```
 
-OS 依存の処理を追加したら、`cross-platform.md §8` に従い合成シナリオで両 OS 分岐（symlink 成功 / コピーフォールバック、ファイル有無、異常入力）を最低限テストする。
+OS 依存の処理を追加したら、`cross-platform.md §8` に従い合成シナリオで両 OS 分岐（フォルダ作成 / 既存再利用 / 衝突リネーム、ファイル有無、異常入力）を最低限テストする（例: `setup-agent-home.js` を一時 `HOME` で実行）。
 
 ## セキュリティ層
 
@@ -85,5 +87,5 @@ OS 依存の処理を追加したら、`cross-platform.md §8` に従い合成�
 
 1. **実行時検知** — `hooks/pre-tool-use.js`（上記）。
 2. **Git 層検知** — `.gitleaks.toml` + GitHub Actions `secret-scan.yml`（PR / push 時スキャン）。`.gitleaks.toml` の allowlist には誤検知回避のため `.github/` が含まれる。
-3. **権限 allowlist** — 同梱 `.claude/settings.json` の deny（`rm -rf` / `sudo` / `git push --force` / `gh repo delete` 等）。
-4. **物理除外** — `~/.belta/` は利用者ホーム側、`.gitignore` でも保護。
+3. **権限 allowlist** — 同梱 `.claude/settings.json` の deny（`rm -rf` / `sudo` / `git push --force` / `gh repo delete` 等）。専用フォルダのローカル設定へ適用する（ローカルスコープ運用と整合）。
+4. **物理除外** — 機密データは `~/.belta/`（利用者ホーム側、`.gitignore` で保護）。専用フォルダ `~/my-agent` の生成物は setup が生成する `.gitignore` で保護。

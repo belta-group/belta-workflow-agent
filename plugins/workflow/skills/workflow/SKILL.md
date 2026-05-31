@@ -75,9 +75,13 @@ trigger: /workflow
 
 **メールアドレス** は `userEmail` コンテキスト（例: `system-bot@belta.co.jp`）を初期値として提示し、「このアドレスでよいですか？」と確認する。違えば訂正してもらう。
 
-### Step 3: プロフィール保存と接続案内
+### Step 3: 専用フォルダ作成・プロフィール保存・接続案内
 
-1. 収集内容を `<home>/.belta/profile.md` に Write ツールで書き込む（親ディレクトリが無ければ作成される）。
+このエージェントは **ホーム直下の専用フォルダ（`~/my-agent`）限定（ローカルスコープ）でだけ動かす** 運用にする。グローバル（全ディレクトリ）有効化は、業務と無関係なセッションでも作法が発火してしまうため避ける。
+
+1. 専用フォルダを作成し、そのフォルダ限定でプラグインを有効化する。実行手順は `/workflow-setup` コマンド（`commands/workflow-setup.md`）と完全に一致させる（`setup-agent-home.js` で `~/my-agent`（衝突時 `-2`…）を作成 → 返ってきた絶対パスを `belta-init.js init --agent-home <path>` で記録 → `apply-permissions.js` / `apply-auto-update.js` を `--target <folder>/.claude/settings.local.json` でそのフォルダへ適用）。完了後は「次回からは `~/my-agent` を Claude Code で開いて使ってください」と案内する。
+
+2. 収集内容を `<home>/.belta/profile.md` に Write ツールで書き込む（親ディレクトリが無ければ作成される）。
 
 ```markdown
 ---
@@ -97,13 +101,13 @@ created_at: <YYYY-MM-DD>
 - <選択したツール一覧>
 ```
 
-> `~/.belta/` は `.gitignore` で除外済み。個人データはリポジトリにコミットしない。
+> `~/.belta/` は `.gitignore` で除外済み。個人データはリポジトリにコミットしない。専用フォルダ `~/my-agent` にも `/workflow-setup` が `.gitignore` を用意し、生成物の誤コミットを防ぐ。
 
-2. Step 2 Q5 で選んだツールのみ OAuth 接続を案内する。検証まで：
+3. Step 2 Q5 で選んだツールのみ OAuth 接続を案内する。検証まで：
    - claude.ai Connector（Notion / Slack / Google Drive）→ `/mcp` でツールが列挙されることを確認
    - GitHub → `gh auth status` で `Logged in to github.com` を確認
 
-3. すべて完了したら state file `<home>/.belta/.onboarded` を作成する（once-only 確定）。これにより次回以降 `SessionStart` フックがセットアップ案内を再注入しなくなる。Write ツールで空ファイルとして作成してよい（`touch` 等の POSIX コマンドに依存しない）。
+4. すべて完了したら state file `<home>/.belta/.onboarded` を作成する（once-only 確定）。これにより次回以降 `SessionStart` フックがセットアップ案内を再注入しなくなる。Write ツールで空ファイルとして作成してよい（`touch` 等の POSIX コマンドに依存しない）。
 
 **完了メッセージ:**
 
@@ -150,9 +154,9 @@ created_at: <YYYY-MM-DD>
 | --- | --- |
 | Notion DB / データベースのスキーマ設計・プロパティ設計 | `notion-schema` スキル（DB 設計知識・property reference を保持） |
 | 「次回からは」「毎回」等の発話、同じ訂正の繰り返し | `rule-learning` スキル（`.belta/rules/` にルールを提案・蓄積） |
-| 同一業務領域が 5 営業日以内に 2 回出現、または同種の業務依頼（例:「PR の状況確認して」）を別の機会に 2 回以上繰り返した | `agent-learning` スキル（専用 subagent を `~/.belta/agents/` に生成） |
+| 同一業務領域が 5 営業日以内に 2 回出現、または同種の業務依頼（例:「PR の状況確認して」）を別の機会に 2 回以上繰り返した | `agent-learning` スキル（専用 subagent を専用フォルダの `.claude/agents/` に生成） |
 | 既存スキルで賄えない非効率作業の繰り返し、「〜できる？」「自動化できない？」等の能力探索 | `skill-suggestion` スキル（適合スキルを find-skills 経由で探し、信頼ソースに限り提案・導入） |
-| 専門業務が 3 回以上反復し、rule / agent / 既存スキルのどれでも賄えない（または「これスキルにして」等の明示依頼） | `skill-authoring` スキル（専用スキルを新規生成し `~/.belta/skills/` → `~/.claude/skills/` へ公開） |
+| 専門業務が 3 回以上反復し、rule / agent / 既存スキルのどれでも賄えない（または「これスキルにして」等の明示依頼） | `skill-authoring` スキル（専用スキルを新規生成し専用フォルダの `.claude/skills/` に配置） |
 
 ### ブラウザ操作が必要な場合（未インストール時の案内）
 
