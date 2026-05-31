@@ -11,6 +11,16 @@
         ]
       }
     ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/repeat-detect.js\""
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Bash|slack_send_message|slack_create_canvas|slack_schedule_message|slack_update_canvas|notion-create|notion-update|notion-duplicate-page|notion-move-pages|create_file|copy_file",

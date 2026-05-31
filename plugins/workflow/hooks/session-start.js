@@ -92,6 +92,60 @@ try {
       ].join("\n")
     );
   }
+
+  // (C) セッションまたぎの反復検知: 直近の notes を走査し、同じ趣旨の依頼が
+  //     別々のセッションで 2 回以上あれば、パーソナライズ提案を促す指示を注入する。
+  //     検知は決定的（正規化一致）。意味判断と提案は LLM に委ねる。
+  try {
+    const { normalizeRequest, parseNotesSessions } = require(path.join(__dirname, "repeat-util.js"));
+    const notesDir = path.join(home, ".belta", "notes");
+    const names = fs.readdirSync(notesDir).filter((n) => /^\d{4}-\d{2}-\d{2}\.md$/.test(n));
+    // 直近 7 暦日分のみ走査（agent-learning の「5 営業日」窓を週末込みで覆う）。
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const keyMap = new Map(); // 正規化キー -> { sessions:Set<sessionId>, sample:生テキスト }
+    for (const name of names) {
+      const m = /^(\d{4})-(\d{2})-(\d{2})\.md$/.exec(name);
+      const fileMs = Date.parse(`${m[1]}-${m[2]}-${m[3]}T00:00:00Z`);
+      if (Number.isFinite(fileMs) && fileMs < cutoff) continue;
+      let text = "";
+      try {
+        text = fs.readFileSync(path.join(notesDir, name), "utf8");
+      } catch {
+        continue;
+      }
+      for (const row of parseNotesSessions(text)) {
+        const seenInRow = new Set(); // 同一セッション行内の重複は 1 機会に畳む（またぎ検知のため）
+        for (const raw of row.requests) {
+          const k = normalizeRequest(raw);
+          if (!k || seenInRow.has(k)) continue;
+          seenInRow.add(k);
+          if (!keyMap.has(k)) keyMap.set(k, { sessions: new Set(), sample: raw });
+          keyMap.get(k).sessions.add(row.sessionId);
+        }
+      }
+    }
+    const repeated = [...keyMap.values()]
+      .filter((v) => v.sessions.size >= 2)
+      .sort((a, b) => b.sessions.size - a.sessions.size)
+      .slice(0, 3);
+    if (repeated.length) {
+      const lines = repeated.map(
+        (v) => `・「${String(v.sample).slice(0, 60)}」（別々のセッションで ${v.sessions.size} 回）`
+      );
+      contexts.push(
+        [
+          "【Belta パーソナライズ検知（セッションまたぎの反復）】",
+          "",
+          "直近の記録（~/.belta/notes/）で、同じ趣旨の依頼が別々のセッションで繰り返されています:",
+          ...lines,
+          "",
+          "本セッションでこれらの作業に着手する際は、agent-learning の消去法ゲートに従い、その領域を専用エージェント化するか（テキストで足りれば rule-learning、既製スキルで足りれば skill-suggestion、専門手順なら skill-authoring）を AskUserQuestion で提案するか検討してください。1 つの依頼の言い直し・継続は反復に数えません。既に AGENTS.md / RULES.md / SKILLS.md / AUTHORED.md で採用済み・却下・冷却中の領域は対象外です。",
+        ].join("\n")
+      );
+    }
+  } catch {
+    /* notes 無し・読めない等は黙って素通り（fail-open） */
+  }
 } catch {
   // fail-open: 何が起きてもセッションを妨げない。
   process.exit(0);
