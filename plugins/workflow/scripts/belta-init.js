@@ -90,6 +90,7 @@ const CONFIG_ORDER = [
   "feature_rule_learning",
   "feature_agent_learning",
   "feature_skill_suggestion",
+  "notes_retention_days",
 ];
 
 function readConfig() {
@@ -135,6 +136,9 @@ function doInit() {
     feature_rule_learning: existing.feature_rule_learning || "true",
     feature_agent_learning: existing.feature_agent_learning || "true",
     feature_skill_suggestion: existing.feature_skill_suggestion || "true",
+    // notes 日次ログの保持日数（notes-record.js の retention が参照）。
+    // 既定 14。agent-learning の「直近 5 営業日」窓を週末込みで割らないため 7 より長め。
+    notes_retention_days: existing.notes_retention_days || "14",
   };
   // 余分な既存キーも保持
   for (const k of Object.keys(existing)) if (!(k in merged)) merged[k] = existing[k];

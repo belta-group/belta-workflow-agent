@@ -34,6 +34,7 @@ Belta 社内向けワークフロー自動化エージェント（Claude Code Pl
 - **`session-start.js`（SessionStart）** — 初回オンボーディングの once-only 自動起動。Claude Code にインストール時フックが無いための代替。`~/.belta/.onboarded` があれば無出力で終了、無ければ `additionalContext` で `/workflow-setup` へ誘導する。
 - **`pre-tool-use.js`（PreToolUse）** — 外部送信前の PII / 機密検知。`hooks.json` の matcher で対象ツール（`Bash` / Slack・Notion・GDrive の書き込み系）に絞ったうえで、コード内でも書き込み系か再判定する。マイナンバー（12桁）・クレジットカード（Luhn）・メール一括（ユニーク5件以上）・機密ラベル・パスワードリテラルを検知すると `permissionDecision: "deny"` でブロック。読み取り系・非該当は無出力で素通しし通常 permission に委ねる。
 - **`token-usage.js`（Stop）** — トランスクリプトの usage を集計し、**セッション 1 ファイル**（`~/.belta/audit/tokens/<session_id>.json`）に atomic に**上書き**保存（append しないので二重計上しない）。`scripts/aggregate-token-usage.js` がこの配下を合算する。
+- **`notes-record.js`（Stop）** — トランスクリプトから「その日の利用者依頼」を機械抽出し、`~/.belta/notes/<YYYY-MM-DD>.md` に **1 セッション 1 行で upsert**（`[session:<id>]` 行を在れば置換／無ければ追記。LLM が書いた他行は保全）。反復検知（`rule-learning` / `agent-learning`）の土台となる notes 履歴を、LLM 任せの自動記録が漏れても確定的に残すための下支え。あわせて保持期間（既定 14 日・`config.yaml` の `notes_retention_days`、下限 7）を過ぎた**日次ログのみ**削除する（トピックノート `kebab-case.md` は残す）。
 
 **フックの鉄則**: 例外時は決してセッションを妨げない（`exit 0` + 無出力 / fail-open）。`§7` 参照。
 
