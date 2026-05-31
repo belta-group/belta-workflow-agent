@@ -105,6 +105,19 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/apply-permissions.js"
 
 > **MCP 接頭辞の注意**: `.claude/settings.json` の MCP ルールは `mcp__claude_ai_<Service>__*` を前提にしている。`/mcp` で列挙される実名が異なる場合は、その接頭辞に合わせて settings.json を調整する。PII 検知フック（`hooks/pre-tool-use.js`）は接頭辞に依存しないサフィックス判定なので、書き込み系の機密遮断はこの調整に関わらず機能する。
 
+### Step 4.5. marketplace 自動更新の有効化（推奨）
+
+プラグインを更新（作者が push + version up）したぶんを、利用者が手動更新せずに **Claude Code 起動時へ自動で届く**ようにする。次を実行（Node.js 実装、Mac / Windows 両対応。既存設定は保持し冪等）：
+
+```
+node "${CLAUDE_PLUGIN_ROOT}/scripts/apply-auto-update.js"
+```
+
+- 利用者の settings.json の `extraKnownMarketplaces.<marketplace>` に `autoUpdate: true` を冪等マージする（auto-update の正規の保存先。TUI の「Enable auto-update」と同じ場所）。**権限（`permissions`）には一切触れない**ので Step 4 とは別物。
+- marketplace 名と GitHub repo は同梱の `marketplace.json` から自動取得する。適用先は Step 4 と同じスコープ（自動判定／`--scope`／`--target`）。事前確認は `--dry-run`。
+- 自動更新を望まない利用者には、このステップを飛ばしてよい旨を伝える（後から `/plugin` → Marketplaces → Enable auto-update でも有効化できる）。
+- **補足（作者向け）**: auto-update は「新しい版があれば取得」する仕組みのため、作者が修正時に `plugin.json` と `marketplace.json` の `version` を上げて push しないと利用者側に更新が届かない点に注意。
+
 ### Step 5. 完了処理（once-only 確定）
 
 すべて完了したら state file `<home>/.belta/.onboarded` を作成します。これにより次回以降のセッションで `SessionStart` フックがセットアップ案内を再注入しなくなります。

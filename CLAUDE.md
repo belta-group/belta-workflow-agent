@@ -48,7 +48,7 @@ Belta 社内向けワークフロー自動化エージェント（Claude Code Pl
 
 ### スクリプト（`scripts/*.js`）
 
-`belta-init.js`（`~/.belta/` 構造と `profile.json` 雛形を冪等生成）/ `apply-permissions.js`（同梱 `.claude/settings.json` の permissions を、プラグインが有効化されているスコープと同じ settings.json（既定は自動判定。`--scope user|project|local` / `--target` で上書き可）へ重複なしマージするフォールバック）。
+`belta-init.js`（`~/.belta/` 構造と `profile.json` 雛形を冪等生成）/ `apply-permissions.js`（同梱 `.claude/settings.json` の permissions を、プラグインが有効化されているスコープと同じ settings.json（既定は自動判定。`--scope user|project|local` / `--target` で上書き可）へ重複なしマージするフォールバック）/ `apply-auto-update.js`（marketplace の自動更新を先回りで有効化。利用者 settings.json の `extraKnownMarketplaces.<marketplace>` に `autoUpdate: true` を冪等マージする。marketplace 名/repo は同梱 `marketplace.json` から自動取得、適用先スコープは `apply-permissions.js` と同一ロジック。**`permissions` には触れない**＝権限境界の権威ソースとは別物）。
 
 ### ユーザデータと権限
 
