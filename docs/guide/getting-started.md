@@ -35,15 +35,23 @@ GitHub 用の小さな道具（gh）が入っていなくても大丈夫です�
 
 ```
 /plugin marketplace add belta-group/belta-workflow-agent
-/plugin install workflow@belta-workflow-agent --scope local
+/plugin install workflow@belta-workflow-agent
 ```
 
 1 行目で「社内のアプリ置き場（マーケットプレイス）」を登録し、2 行目でそこから `workflow` プラグイン（エージェント本体）を取り出して導入します。本屋を登録してから、目当ての本を 1 冊持ち帰るイメージです。
 
-2 行目の末尾の **`--scope local`** が、「**いま開いているこのフォルダ（執務室）だけ**で秘書を有効にする」指定です。これにより、秘書は `~/my-agent` の中でだけ働き、関係ない作業中に顔を出すことはありません。
+2 行目を実行すると、**「どこで使えるようにするか（スコープ）」を選ぶメニュー**が表示されます。次の 3 択のうち、**いちばん下の「このフォルダだけ（local scope）」を選んでください**（カーソルは初期状態で先頭の User に当たっているので、↓ キーで下まで動かして選びます）。
 
-::: warning 必ず執務室の中で・`--scope local` を付けて実行
-`--scope local` は「**いま Claude Code を開いているフォルダ**」を対象にします。Step 1 で作った `~/my-agent` の中で開いていることを確かめてから実行してください。`--scope local` を付け忘れると、既定の「すべての場所（User）」に入り、関係ない作業中にも秘書が顔を出してしまいます。**もし間違って全体に入れても大丈夫** — 次の Step の初回セットアップが、専用の執務室だけで働くよう整えます。
+| メニュー表示 | 意味 | 選ぶ？ |
+| --- | --- | --- |
+| Install for you (user scope) | すべての場所で有効（全ディレクトリで発火） | ✗ |
+| Install for all collaborators on this repository (project scope) | この repo を共有する全員で有効 | ✗ |
+| **Install for you, in this repo only (local scope)** | **いま開いているこのフォルダだけで有効** | **✓ これを選ぶ** |
+
+Step 1 で `~/my-agent` の中で Claude Code を開いているので、「このフォルダだけ（local scope）」を選べば、秘書は `~/my-agent` の中でだけ働き、関係ない作業中に顔を出すことはありません。
+
+::: warning コマンドの `--scope` フラグは当てにしない（メニューで選ぶ）
+バージョンによっては `--scope local` のようなフラグを付けても無視され、結局このメニューが出ます。**フラグ任せにせず、必ずメニューで「このフォルダだけ（local scope）」を選んでください。** もし間違って「すべての場所（User）」で入れても大丈夫 — 次の Step の初回セットアップが、専用の執務室だけで働くよう整えます。
 :::
 
 ## Step 3. 初回セットアップを始める
