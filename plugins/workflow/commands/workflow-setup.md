@@ -96,7 +96,8 @@ Step 1 で選んだツールのみ案内すればよい。
 node "${CLAUDE_PLUGIN_ROOT}/scripts/apply-permissions.js"
 ```
 
-- 既定の適用先はホームの `.claude/settings.json`（POSIX: `$HOME` / Windows: `%USERPROFILE%`）。プロジェクト単位に絞るなら `--target <path>` を渡す。
+- 適用先は**プラグインを有効化したスコープに自動で揃う**（既定）。project スコープで入れたフォルダで実行すれば project の `.claude/settings.json` に、user（グローバル）で入れていればホームの `.claude/settings.json`（POSIX: `$HOME` / Windows: `%USERPROFILE%`）に適用される。
+- 明示したい場合は `--scope user|project|local`、特定ファイルに入れるなら `--target <path>` を渡す（優先順は `--target` > `--scope` > 自動判定）。
 - 事前に差分だけ見たい場合は `--dry-run` を付ける。
 - 適用後、`Bash(rm -rf *)` が deny、書き込み系（Slack 送信・PR 作成等）が ask、読み取り系（`gh pr list` 等）が allow になることを確認する（[references/security-policies.md](../skills/workflow/references/security-policies.md) §6）。
 

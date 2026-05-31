@@ -14,7 +14,7 @@
 ---
 name: <slug>                      # kebab-case。AGENTS.md のキーと一致させる
 description: <この subagent をいつ起動するか。1 文で具体的に。委譲判定に使われる>
-tools: <親 plugin.json allow の部分集合のみ>   # 権限は継承ではなく明示的に絞る
+tools: <親 .claude/settings.json allow の部分集合のみ>   # 権限は継承ではなく明示的に絞る
 model: <haiku | sonnet | inherit>  # 下記「モデル選択ポリシー」で決定（inherit を既定にしない）
 source_notes:                      # 生成根拠にした notes（再学習・監査用）
   - .belta/notes/<YYYY-MM-DD>.md
@@ -53,7 +53,7 @@ created_at: <YYYY-MM-DD>
 
 ## 権限・セキュリティ（モデルとは独立に必須）
 
-- `tools` は親 `plugin.json` の allow の **部分集合のみ**。モデルを下げても権限は別途絞ること。
+- `tools` は親 `.claude/settings.json` の allow の **部分集合のみ**。モデルを下げても権限は別途絞ること。
 - 生成 subagent 経由でも PII 検知フック（`hooks/pre-tool-use.js`）が発火することを前提にする
   （モデル選択は防御を肩代わりしない）。
 - パスはホームディレクトリ環境変数（POSIX: `$HOME` / Windows: `%USERPROFILE%`）から解決し、

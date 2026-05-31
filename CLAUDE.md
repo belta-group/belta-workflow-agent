@@ -47,12 +47,12 @@ Belta 社内向けワークフロー自動化エージェント（Claude Code Pl
 
 ### スクリプト（`scripts/*.js`）
 
-`belta-init.js`（`~/.belta/` 構造と `profile.json` 雛形を冪等生成）/ `apply-permissions.js`（`plugin.json` の permissions を `~/.claude/settings.json` へ重複なしマージするフォールバック）。
+`belta-init.js`（`~/.belta/` 構造と `profile.json` 雛形を冪等生成）/ `apply-permissions.js`（同梱 `.claude/settings.json` の permissions を、プラグインが有効化されているスコープと同じ settings.json（既定は自動判定。`--scope user|project|local` / `--target` で上書き可）へ重複なしマージするフォールバック）。
 
 ### ユーザデータと権限
 
 - 実行時の個人データはすべて利用者ホームの **`~/.belta/`** 配下（`profile.json` / `rules/` / `agents/` / `audit/`）に置く。リポジトリには含めない。
-- 権限境界は `plugin.json` の `permissions`（読み取り=allow / 書き込み=ask / 破壊的操作=deny）で定義。`plugins/workflow/.claude/settings.json` は同内容のミラー。**両者を変更したら必ず同期させる。**
+- 権限境界の**単一の権威ソースは `plugins/workflow/.claude/settings.json` の `permissions`**（読み取り=allow / 書き込み=ask / 破壊的操作=deny）。`plugin.json` には permissions フィールドを置かない（プラグインマニフェストの機能ではないため）。プラグイン同梱 settings が自動マージされない環境では `apply-permissions.js` がこの権威ソースを利用者の settings.json へ反映する。**権限を変えるときはこの 1 ファイルだけを編集する。**
 - 認証は全て OAuth ベース（PAT / API キーの平文保存をしない）。GitHub のみ MCP を置かず `gh` CLI を Bash 経由で呼ぶ。
 
 ## 検証・コマンド
@@ -82,5 +82,5 @@ OS 依存の処理を追加したら、`cross-platform.md §8` に従い合成�
 
 1. **実行時検知** — `hooks/pre-tool-use.js`（上記）。
 2. **Git 層検知** — `.gitleaks.toml` + GitHub Actions `secret-scan.yml`（PR / push 時スキャン）。`.gitleaks.toml` の allowlist には誤検知回避のため `.github/` が含まれる。
-3. **権限 allowlist** — `plugin.json` の deny（`rm -rf` / `sudo` / `git push --force` / `gh repo delete` 等）。
+3. **権限 allowlist** — 同梱 `.claude/settings.json` の deny（`rm -rf` / `sudo` / `git push --force` / `gh repo delete` 等）。
 4. **物理除外** — `~/.belta/` は利用者ホーム側、`.gitignore` でも保護。

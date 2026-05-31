@@ -7,9 +7,18 @@
 // 効かない環境向けの保険。/workflow-setup の最終ステップから呼ぶ。
 //
 // 使い方:
-//   node scripts/apply-permissions.js [--target <settings.json のパス>] [--dry-run]
+//   node scripts/apply-permissions.js [--scope user|project|local] [--target <path>] [--dry-run]
 //
-//   --target 省略時は <home>/.claude/settings.json（POSIX: $HOME / Windows: %USERPROFILE%）。
+//   適用先（settings.json）の決定は次の優先順:
+//     1. --target <path> … 明示パス（最優先）。
+//     2. --scope <s>     … user=<home>/.claude/settings.json /
+//                          project=<project root>/.claude/settings.json /
+//                          local=<project root>/.claude/settings.local.json。
+//     3. 自動判定（既定）… プラグインが有効化されているスコープと同じ場所へ適用する。
+//                          project/local の settings(.local).json の enabledPlugins に
+//                          このプラグインがあればそのスコープ、無ければ user。
+//   これにより「プラグインを project スコープで入れたら権限も project に」揃う。
+//   project root はカレントから上位へ `.claude` / `.git` を探索して決定（無ければ cwd）。
 //   --dry-run 指定時は書き込まず差分のみ表示。
 //
 // 設計（クロスプラットフォーム規約）:
@@ -25,10 +34,17 @@ const os = require("os");
 // ---- 引数パース --------------------------------------------------------------
 const argv = process.argv.slice(2);
 let targetPath = null;
+let scope = null;
 let dryRun = false;
 for (let i = 0; i < argv.length; i++) {
   if (argv[i] === "--target") targetPath = argv[++i];
+  else if (argv[i] === "--scope") scope = argv[++i];
   else if (argv[i] === "--dry-run") dryRun = true;
+}
+
+if (scope && !["user", "project", "local"].includes(scope)) {
+  console.error(`[apply-permissions] --scope は user / project / local のいずれか: ${scope}`);
+  process.exit(1);
 }
 
 // ---- ホーム / プラグインルート解決 -------------------------------------------
@@ -41,9 +57,60 @@ function pluginRoot() {
   return process.env.CLAUDE_PLUGIN_ROOT || path.resolve(__dirname, "..");
 }
 
-if (!targetPath) {
-  targetPath = path.join(homeDir(), ".claude", "settings.json");
+// このプラグインの名前（enabledPlugins キーの "<name>@<marketplace>" 照合に使う）。
+function pluginName() {
+  const manifest = readJson(path.join(pluginRoot(), ".claude-plugin", "plugin.json"));
+  return (manifest && manifest.name) || "workflow";
 }
+
+// カレントから上位へ `.claude` / `.git` を辿り project root を決める（無ければ cwd）。
+function findProjectRoot() {
+  let dir = process.cwd();
+  for (;;) {
+    if (fs.existsSync(path.join(dir, ".claude")) || fs.existsSync(path.join(dir, ".git"))) return dir;
+    const parent = path.dirname(dir);
+    if (parent === dir) return process.cwd();
+    dir = parent;
+  }
+}
+
+// scope 名 → settings ファイルのパス。
+function pathForScope(s, root) {
+  if (s === "user") return path.join(homeDir(), ".claude", "settings.json");
+  if (s === "local") return path.join(root, ".claude", "settings.local.json");
+  return path.join(root, ".claude", "settings.json"); // project
+}
+
+// 指定 settings にこのプラグインが有効化されているか（enabledPlugins に "<name>@*": true）。
+function pluginEnabledIn(settingsPath, name) {
+  const s = readJson(settingsPath);
+  if (!s || !s.enabledPlugins) return false;
+  return Object.entries(s.enabledPlugins).some(
+    ([k, v]) => v === true && k.startsWith(name + "@")
+  );
+}
+
+// 自動判定: プラグインが有効化されているスコープを返す（local > project > user）。
+function detectScope(root) {
+  const name = pluginName();
+  if (pluginEnabledIn(pathForScope("local", root), name)) return "local";
+  if (pluginEnabledIn(pathForScope("project", root), name)) return "project";
+  return "user";
+}
+
+// ---- 適用先の決定（--target > --scope > 自動判定） ---------------------------
+const targetExplicit = targetPath != null;
+const projectRoot = findProjectRoot();
+const effectiveScope = scope || detectScope(projectRoot);
+if (!targetPath) {
+  targetPath = pathForScope(effectiveScope, projectRoot);
+}
+const scopeNote = targetExplicit
+  ? "--target 明示"
+  : scope
+  ? `--scope ${scope}`
+  : `自動判定 → ${effectiveScope}`;
+console.log(`[apply-permissions] 適用スコープ: ${scopeNote}（${targetPath}）`);
 
 const sourcePath = path.join(pluginRoot(), ".claude", "settings.json");
 

@@ -139,7 +139,7 @@ belta-workflow-agent/
 
 - **外部送信前検知**: `hooks/pre-tool-use.js` がマイナンバー / クレジットカード / メールアドレス一括 / 「マル秘」「社外秘」/ パスワードリテラルを検知し、書き込み系（Slack / Notion / Google Drive の `send|create|update`、`gh issue|pr|release|gist create`、`curl|wget|http`）をブロック。
 - **Git 層検知**: `.gitleaks.toml` + GitHub Actions（`secret-scan.yml`）が PR / push 時にスキャン。
-- **permission allowlist**: `plugin.json` で読み取り系は allow、書き込み系は ask、`Bash(rm -rf *)` / `Bash(sudo *)` / `Bash(git push --force *)` / `Bash(gh repo delete *)` 等は deny。
+- **permission allowlist**: 同梱の `.claude/settings.json` で読み取り系は allow、書き込み系は ask、`Bash(rm -rf *)` / `Bash(sudo *)` / `Bash(git push --force *)` / `Bash(gh repo delete *)` 等は deny。
 - **個人データの物理除外**: `.belta/` は `.gitignore` で除外。
 - **平文認証情報を持たない**: API キーや PAT のローカル平文保存は行わない。Notion / Slack / Google Drive は claude.ai Connector 側の OAuth 保管庫、GitHub は macOS keychain。
 

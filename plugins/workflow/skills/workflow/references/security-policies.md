@@ -1,6 +1,6 @@
 # セキュリティポリシー
 
-Belta ワークフローエージェントの機密情報・認証情報の取り扱い方針。`everything-claude-code`（`rules/security.md` / `skills/security-review/SKILL.md`）を起点に、**業務自動化エージェント向け（PII / 機密キーワード / 外部送信ガード / OAuth）** に再構成したもの。実装は `hooks/pre-tool-use.js`（PII 検知）・`plugin.json`（permission allowlist, Day 7）・`.gitleaks.toml`（Git 層, Day 10）の 3 つで多層化する。
+Belta ワークフローエージェントの機密情報・認証情報の取り扱い方針。`everything-claude-code`（`rules/security.md` / `skills/security-review/SKILL.md`）を起点に、**業務自動化エージェント向け（PII / 機密キーワード / 外部送信ガード / OAuth）** に再構成したもの。実装は `hooks/pre-tool-use.js`（PII 検知）・`.claude/settings.json`（permission allowlist, Day 7）・`.gitleaks.toml`（Git 層, Day 10）の 3 つで多層化する。
 
 > このエージェントは開発ツールではなく **業務窓口**（Notion / Slack / Google Drive / GitHub）。脅威の中心は SQL インジェクション等ではなく、**機密情報の外部送信・リポジトリ流出**。本ポリシーはそこに最適化する。
 
@@ -13,7 +13,7 @@ Belta ワークフローエージェントの機密情報・認証情報の取�
 | 層 | 実装 | 守る境界 | タイミング |
 | --- | --- | --- | --- |
 | **L1: PII 検知フック** | `hooks/pre-tool-use.js`（PreToolUse） | 外部送信・書き込みツール呼び出し | 実行**直前**に deny |
-| **L2: permission allowlist** | `plugin.json` の allow / ask / deny | ツール実行可否そのもの | 呼び出し判定時 |
+| **L2: permission allowlist** | `.claude/settings.json` の allow / ask / deny | ツール実行可否そのもの | 呼び出し判定時 |
 | **L3: Git 漏洩防止** | `.gitleaks.toml` + GitHub Actions | リポジトリへの commit / push | コミット・CI 時 |
 
 加えて **L0: エージェント運用ルール**（SKILL.md 運営モード）が「機密度を尊重し書き込み前に確認」を行う。フックは最後の砦であり、運用での配慮を前提に設計する。
@@ -98,7 +98,7 @@ Phase -1 は**全 OAuth 化**しており、平文 API キーをローカルに�
 
 ## 6. permission allowlist の原則（L2、Day 7 で実装）
 
-`plugin.json` の `permissions` で 3 分類する。設計原則のみここに記す（具体エントリは Day 7）。
+`.claude/settings.json` の `permissions` で 3 分類する。設計原則のみここに記す（具体エントリは Day 7）。
 
 | 分類 | 基準 | 例 |
 | --- | --- | --- |
@@ -142,7 +142,7 @@ Phase -1 は**全 OAuth 化**しており、平文 API キーをローカルに�
 ## 関連ファイル
 
 - PII 検知フック実装: `hooks/pre-tool-use.js`
-- permission allowlist: `plugins/workflow/.claude-plugin/plugin.json`（Day 7）
+- permission allowlist: `plugins/workflow/.claude/settings.json`（Day 7）
 - Git 漏洩防止: `.gitleaks.toml` + `.github/workflows/secret-scan.yml`（Day 10）
 - 認証情報の保管: [mcp-setup.md](mcp-setup.md)
 - 運営モードの確認フロー: [SKILL.md](../SKILL.md)

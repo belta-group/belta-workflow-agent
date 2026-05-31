@@ -152,4 +152,4 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/ensure-gh.js"
 - 実行手順そのもの: [`commands/workflow-setup.md`](../../../commands/workflow-setup.md)
 - 運用時の発話 → 4 ツール分岐: [`SKILL.md`](../SKILL.md)
 - 書き込み前の PII 検知: `hooks/pre-tool-use.js`
-- permission allowlist（allow / ask / deny）: `plugins/workflow/.claude-plugin/plugin.json`（Day 7）
+- permission allowlist（allow / ask / deny）: `plugins/workflow/.claude/settings.json`（Day 7）
