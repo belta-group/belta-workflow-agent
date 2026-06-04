@@ -17,6 +17,47 @@ const STOPWORDS = new Set([
   "yes", "no", "続けて", "やって", "お願い",
 ]);
 
+// 利用者が「エージェントの事実誤り（ハルシネーション）」を指摘していると見なせる表現。
+// 二度と同じ誤りを犯さないための事実訂正メモリ（hallucination-memory）の起動シグナル。
+//   - 決定的検知の土台。最終判断（本当にハルシネーションか／同じ誤りの再発か）は LLM に委ねる。
+//   - 誤検知してもナッジするだけ（ブロックも自動書き込みもしない）ので、再現率より
+//     ノイズ抑制をやや優先した、訂正と分かりやすい表現に絞る（「間違いない」等は含めない）。
+const CORRECTION_MARKERS = [
+  // 日本語: 事実誤り・ハルシネーションの指摘
+  "ハルシ", "事実と違", "事実誤認", "事実無根", "事実ではな", "そんな事実",
+  "そんなファイル", "そんな関数", "そんなコマンド", "そんなapi", "そんなメソッド",
+  "そんなオプション", "存在しない", "存在しません", "捏造", "でっちあげ", "でっち上げ",
+  "でたらめ", "勝手に作", "勝手に決め", "正しくは", "実際には", "間違ってる",
+  "間違っている", "間違いです", "間違いだ", "誤りです", "誤りだ", "誤情報",
+  "それは違い", "それは違う", "違います", "そうではない", "そうじゃない", "嘘です", "嘘だ",
+  // 英語
+  "hallucinat", "fabricat", "made that up", "made up", "doesn't exist",
+  "does not exist", "no such", "that's false", "that is false",
+  "is incorrect", "is wrong", "you're wrong", "you are wrong", "not true",
+  "factually wrong", "wrong path", "wrong file",
+];
+
+// 1 件の利用者発話が「事実誤りの指摘（訂正）」らしいかを決定的に判定する。
+// CORRECTION_MARKERS のいずれかを含めば true。ハーネス注入タグは除去してから判定する。
+function looksLikeCorrection(text) {
+  if (typeof text !== "string") return false;
+  let t = text;
+  t = t.replace(/<system-reminder>[\s\S]*?<\/system-reminder>/g, " ");
+  t = t.replace(/<command-[^>]*>[\s\S]*?<\/command-[^>]*>/g, " ");
+  t = t.replace(/<local-command-[^>]*>[\s\S]*?<\/local-command-[^>]*>/g, " ");
+  t = t.replace(/<[^>]+>/g, " ");
+  t = t.replace(/\s+/g, " ").trim();
+  if (!t) return false;
+  if (t.startsWith("/")) return false; // スラッシュコマンドは対象外
+  try {
+    t = t.normalize("NFKC");
+  } catch {
+    /* normalize 非対応環境でも続行 */
+  }
+  t = t.toLowerCase();
+  return CORRECTION_MARKERS.some((m) => t.includes(m));
+}
+
 // 1 件の利用者発話 → 意図比較用の正規化キー。比較に不適なら "" を返す。
 function normalizeRequest(text) {
   if (typeof text !== "string") return "";
@@ -98,4 +139,11 @@ function parseNotesSessions(notesText) {
   return rows;
 }
 
-module.exports = { normalizeRequest, extractUserTexts, parseNotesSessions, STOPWORDS };
+module.exports = {
+  normalizeRequest,
+  extractUserTexts,
+  parseNotesSessions,
+  looksLikeCorrection,
+  STOPWORDS,
+  CORRECTION_MARKERS,
+};

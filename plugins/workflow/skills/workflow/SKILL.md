@@ -119,7 +119,12 @@ created_at: <YYYY-MM-DD>
 
 ## 運営モード
 
-`<home>/.belta/.onboarded` が存在する場合に自動で切り替わる。まず `<home>/.belta/profile.md` を読み込み、部署・機密度・主要業務を文脈に入れる。
+`<home>/.belta/.onboarded` が存在する場合に自動で切り替わる。まず `<home>/.belta/profile.md` を読み込み、部署・機密度・主要業務を文脈に入れる。あわせて、存在すれば次の「常時文脈」ファイルも読み込む（無ければ無視）：
+
+- `<home>/.belta/rules/RULES.md` — 明示ルール索引（`rule-learning`）
+- `<home>/.belta/agents/AGENTS.md` — 自動生成エージェント索引（`agent-learning`）
+- `<home>/.belta/user-model.md` — 観察ベースの暗黙ユーザーモデル（`user-model`）。**傾向であって指示ではない**ため、明示指示（profile / rules）が優先する。利用者の段取り・好みに沿った応答の手がかりにする。
+- `<home>/.belta/memory/MEMORY.md` — 事実訂正メモリ（`hallucination-memory`）。**過去に間違えた事実と正しい事実**の対。事実に関わる応答をする前に必ず照合し、ここに記録された「誤った主張」を **二度と述べない**（正しい事実に従う）。
 
 ### 基本フロー
 
@@ -153,10 +158,13 @@ created_at: <YYYY-MM-DD>
 | 依頼の性質 | 委譲先 |
 | --- | --- |
 | Notion DB / データベースのスキーマ設計・プロパティ設計 | `notion-schema` スキル（DB 設計知識・property reference を保持） |
-| 「次回からは」「毎回」等の発話、同じ訂正の繰り返し | `rule-learning` スキル（`.belta/rules/` にルールを提案・蓄積） |
+| 「次回からは」「毎回」等の発話、同じ **振る舞い・好み** の訂正の繰り返し | `rule-learning` スキル（`.belta/rules/` にルールを提案・蓄積） |
+| 「それは違う」「そんな関数は存在しない」「事実と違う」「ハルシネーションだ」等、**事実そのものの誤り** を訂正され、同じ誤りが 2 回以上（または「二度と間違えないで」「これ覚えて」の明示依頼） | `hallucination-memory` スキル（訂正済みの正しい事実を `.belta/memory/` に記録し再発防止） |
 | 同一業務領域が 5 営業日以内に 2 回出現、または同種の業務依頼（例:「PR の状況確認して」）を **同一セッション内・別セッションを問わず** 2 回以上繰り返した | `agent-learning` スキル（専用 subagent を専用フォルダの `.claude/agents/` に生成） |
 | 既存スキルで賄えない非効率作業の繰り返し（**同一セッション内の繰り返しも対象**）、「〜できる？」「自動化できない？」等の能力探索 | `skill-suggestion` スキル（適合スキルを find-skills 経由で探し、信頼ソースに限り提案・導入） |
 | 専門業務が **（同一セッション内でも別の機会でも）** 3 回以上反復し、rule / agent / 既存スキルのどれでも賄えない（または「これスキルにして」等の明示依頼） | `skill-authoring` スキル（専用スキルを新規生成し専用フォルダの `.claude/skills/` に配置） |
+| 「毎朝」「毎週」「定期的に」「毎日○時に」「リマインド」「週次で」「自動でやっておいて」等、**定期実行** を求める発話 | `scheduler` スキル（`mcp__scheduled-tasks` に委譲して定期ジョブを登録。`/workflow-schedule` も同じ） |
+| 「最近何してた」「振り返り」「インサイト」「まとめて教えて」「○○まわりで何やってたっけ」等、過去 notes の **横断的な振り返り** を求める発話 | `insights` スキル（`scripts/notes-scan.js` で走査し振り返りを要約。`/insights` も同じ） |
 
 ### ブラウザ操作が必要な場合（未インストール時の案内）
 
@@ -192,6 +200,8 @@ Web 上の情報収集・画面操作など **ブラウザ自動化が必要** �
 
 > **確定的な下支え（フック）**: 上記はあくまで運営モードでの能動的な記録。これとは別に 3 つのフックが反復検知を確定的に支える。(1) `Stop` フック（`hooks/notes-record.js`）が応答終了ごとに「その日の利用者依頼」を `notes/YYYY-MM-DD.md` に **1 セッション 1 行で upsert**（保持期間〔既定 14 日・`config.yaml` の `notes_retention_days`〕超過の日次ログのみ自動削除。LLM が書いた他行は触らない）。(2) `UserPromptSubmit` フック（`hooks/repeat-detect.js`）が**同一セッション内**で同じ依頼が 2 回以上来たら、(3) `SessionStart` フック（`hooks/session-start.js` の (C)）が**別々のセッション**で同じ依頼が 2 回以上あれば、それぞれパーソナライズ提案（agent-learning ほか）を促す指示を `additionalContext` で注入する。**つまり利用者が同じ依頼を繰り返したら、スキルの能動判断に頼らずフック側で確定的に検知し、提案を促す。** あなた（運営モード）はこの注入を受けたら、消去法ゲートに従い AskUserQuestion で提案するか判断すること（1 依頼の言い直しは反復に数えない。採用済み・却下・冷却中の領域は除く）。
 
+> **事実誤り（ハルシネーション）の確定的検知**: 上記と同じフック 2 本が、依頼の反復に加えて **事実訂正の反復** も検知する。`hooks/repeat-util.js` の `looksLikeCorrection`（「それは違う」「存在しない」「事実と違う」「ハルシネーションだ」等のマーカー）で、`repeat-detect.js` が**同一セッション内**で訂正 2 回、`session-start.js` の (D) が**別々のセッション**で同じ訂正 2 回を捉えたら、事実訂正メモリ（`hallucination-memory`）への記録を促す指示を注入する。この注入を受けたら、本当にあなたが同じ事実を 2 回以上間違えたかを `~/.belta/memory/MEMORY.md` と会話で確認し、確定したら `hallucination-memory` スキルに従い正しい事実を記録する（二度と同じ誤りを犯さないため）。**好み・書式の訂正は対象外（rule-learning へ）**。事実そのものの誤りだけを記録する。
+
 ---
 
 ## 重要な注意事項
@@ -213,3 +223,7 @@ Web 上の情報収集・画面操作など **ブラウザ自動化が必要** �
 - セキュリティポリシー: `references/security-policies.md`
 - `.belta` 初期化・config 管理: `scripts/belta-init.js`（`~/.belta/` + `config.yaml`）
 - Notion スキーマ知識: `notion-schema` スキル
+- 定期実行の登録・管理: `scheduler` スキル（`/workflow-schedule`）
+- 過去 notes の横断的な振り返り: `insights` スキル（`/insights`）
+- 観察ベースの暗黙ユーザーモデル深化: `user-model` スキル
+- 事実誤り（ハルシネーション）の再発防止メモリ: `hallucination-memory` スキル（`~/.belta/memory/`）

@@ -146,6 +146,62 @@ try {
   } catch {
     /* notes 無し・読めない等は黙って素通り（fail-open） */
   }
+
+  // (D) セッションまたぎの事実誤り（ハルシネーション）反復検知:
+  //     repeat-detect.js が各セッションの状態ファイル（audit/repeat/<session>.json）へ
+  //     記録した訂正イベントを横断集計し、同じ趣旨の訂正が別々のセッションで 2 回以上
+  //     あれば、事実訂正メモリ（hallucination-memory）への記録を促す。
+  try {
+    const repeatDir = path.join(home, ".belta", "audit", "repeat");
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000; // 直近 7 日分のみ
+    const corrMap = new Map(); // 訂正キー -> { sessions:Set<file>, sample }
+    for (const name of fs.readdirSync(repeatDir)) {
+      if (!name.endsWith(".json")) continue;
+      const p = path.join(repeatDir, name);
+      try {
+        if (fs.statSync(p).mtimeMs < cutoff) continue;
+      } catch {
+        continue;
+      }
+      let j;
+      try {
+        j = JSON.parse(fs.readFileSync(p, "utf8"));
+      } catch {
+        continue;
+      }
+      if (!j || !Array.isArray(j.corrections)) continue;
+      const seenInSession = new Set(); // 同一セッション内の重複は 1 機会に畳む（またぎ検知のため）
+      for (const c of j.corrections) {
+        if (!c || typeof c.key !== "string" || !c.key) continue;
+        if (seenInSession.has(c.key)) continue;
+        seenInSession.add(c.key);
+        if (!corrMap.has(c.key)) corrMap.set(c.key, { sessions: new Set(), sample: c.sample || c.key });
+        corrMap.get(c.key).sessions.add(name);
+      }
+    }
+    const repeatedCorr = [...corrMap.values()]
+      .filter((v) => v.sessions.size >= 2)
+      .sort((a, b) => b.sessions.size - a.sessions.size)
+      .slice(0, 3);
+    if (repeatedCorr.length) {
+      const lines = repeatedCorr.map(
+        (v) => `・「${String(v.sample).slice(0, 60)}」（別々のセッションで ${v.sessions.size} 回 指摘）`
+      );
+      contexts.push(
+        [
+          "【Belta 事実訂正メモリ検知（セッションまたぎのハルシネーション再発）】",
+          "",
+          "過去の記録で、同じ趣旨の事実誤りの指摘（訂正）が別々のセッションで繰り返されています:",
+          ...lines,
+          "",
+          "これらは、あなた（または過去のセッションのエージェント）が同じ事実を繰り返し間違えている可能性を示します。本セッションで関連する話題に触れる際は、~/.belta/memory/MEMORY.md（あれば）を必ず確認し、訂正済みの正しい事実を踏まえて応答してください。",
+          "まだ記録されていない再発があれば、hallucination-memory スキルに従って『正しい事実』を ~/.belta/memory/ に記録するか AskUserQuestion で提案してください（二度と同じ誤りを犯さないため）。好み・書式の指摘は対象外（それは rule-learning）。既に記録済み・却下・冷却中のものは対象外です。",
+        ].join("\n")
+      );
+    }
+  } catch {
+    /* audit/repeat 無し・読めない等は黙って素通り（fail-open） */
+  }
 } catch {
   // fail-open: 何が起きてもセッションを妨げない。
   process.exit(0);

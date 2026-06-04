@@ -94,6 +94,10 @@ const CONFIG_ORDER = [
   "feature_rule_learning",
   "feature_agent_learning",
   "feature_skill_suggestion",
+  "feature_scheduler",
+  "feature_user_model",
+  "feature_hallucination_memory",
+  "insights_default_days",
   "notes_retention_days",
 ];
 
@@ -126,7 +130,7 @@ function nowIso() {
 function doInit() {
   // ディレクトリ生成（.belta 本体 0o700、サブは notes/inbox/todos）
   fs.mkdirSync(beltaDir, { recursive: true, mode: 0o700 });
-  for (const sub of ["notes", "inbox", "todos"]) {
+  for (const sub of ["notes", "inbox", "todos", "memory"]) {
     fs.mkdirSync(path.join(beltaDir, sub), { recursive: true, mode: 0o700 });
   }
 
@@ -143,6 +147,13 @@ function doInit() {
     feature_rule_learning: existing.feature_rule_learning || "true",
     feature_agent_learning: existing.feature_agent_learning || "true",
     feature_skill_suggestion: existing.feature_skill_suggestion || "true",
+    // 定期実行（scheduler スキル）と暗黙ユーザーモデル深化（user-model スキル）の有効化フラグ。
+    feature_scheduler: existing.feature_scheduler || "true",
+    feature_user_model: existing.feature_user_model || "true",
+    // 事実訂正メモリ（hallucination-memory スキル）の有効化フラグ。
+    feature_hallucination_memory: existing.feature_hallucination_memory || "true",
+    // /insights の既定走査日数（insights スキルが get で参照。未設定時は 7 にフォールバック）。
+    insights_default_days: existing.insights_default_days || "7",
     // notes 日次ログの保持日数（notes-record.js の retention が参照）。
     // 既定 14。agent-learning の「直近 5 営業日」窓を週末込みで割らないため 7 より長め。
     notes_retention_days: existing.notes_retention_days || "14",

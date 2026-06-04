@@ -13,7 +13,8 @@ export default defineConfig({
 
   // docs/ をルートにしているため、利用者向けでない内部ドキュメント（背景・実装チェックリスト）と
   // リポジトリ README はビルド対象から除外する。社外秘情報の誤公開を防ぐ。
-  srcExclude: ['background.md', 'tasks.md', 'README.md'],
+  // タスクメモは tasks.md から tasks/ ディレクトリへ移したので、配下もまとめて除外する。
+  srcExclude: ['background.md', 'tasks.md', 'tasks/**', 'README.md'],
 
   cleanUrls: true,
   lastUpdated: true,

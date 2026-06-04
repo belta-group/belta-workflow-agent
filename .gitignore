@@ -26,7 +26,7 @@ docs/.vitepress/cache/
 docs/.vitepress/dist/
 
 # 作業用タスクメモ（個人ローカル）
-docs/tasks.md
+docs/tasks/*
 
 # ローカル Claude Code 設定（プロジェクト固有のキャッシュ等）
 .claude/settings.local.json
