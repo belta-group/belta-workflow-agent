@@ -16,6 +16,12 @@ Belta 社内向けワークフロー自動化エージェント（Claude Code Pl
 
 @.claude/rules/doc-writing.md
 
+### スキル（SKILL.md）の作成方針
+
+スキルを新規作成・改訂するときは、**「ただの指示書」ではなく「スクリプト・参照知識・アセットを内包した AI 専用の道具箱（フォルダ）」** として設計する。1 スキル 1 役割（9 カテゴリーのいずれか 1 つ）・当たり前を書かない・「罠（Gotchas）」の蓄積・段階的開示（`SKILL.md` ＋ `references/` ＋ `scripts/`）・`description` は AI 向けに狭く具体的に・縛りすぎない・セットアップ値は分離して `AskUserQuestion` で補完、の各原則を守る。同梱スクリプトは `cross-platform.md` 準拠（Node.js 単一実装）。
+
+@.claude/rules/skill-writing.md
+
 ## リポジトリ構成
 
 このリポジトリは 2 つの独立した部分から成る。

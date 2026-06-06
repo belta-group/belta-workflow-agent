@@ -71,6 +71,14 @@ belta は `~/.belta/notes/` に「その日の利用者依頼」を貯めてい�
 - 承認 → [user-model](../user-model/SKILL.md) スキルに委譲し、この走査結果を出典として渡す。
 - 「明示ルールにしたい」と言われたら [rule-learning](../rule-learning/SKILL.md) へ回す（user-model は暗黙傾向、rule-learning は明示ルール）。
 
+### Step 5: 成長日記（avatar 連携・任意）
+
+利用者が「成長」「アバターの育ち」「今週どれだけ育った」等を求めたとき、または週次ジョブ `belta-wf-weekly-growth` では、振り返りに **育成アバターの成長**を添える。手順は [references/growth-diary.md](references/growth-diary.md)。
+
+- 数値は決定的に `node "${CLAUDE_PLUGIN_ROOT}/scripts/avatar-stats.js" --json` で取得（LLM 消費なし）。
+- それを材料に「先週比で Lv が上がった／新バッジ獲得／継続が伸びた」を**日常語の育成日記**にして `~/.belta/reports/YYYY-MM-DD-growth-diary.md` に Write。
+- 数値→意味の翻訳のみ LLM が担う（算出は [avatar](../avatar/SKILL.md) の Node スクリプト）。
+
 ## 重要な注意事項
 
 - 走査は必ず `notes-scan.js` に委ねる（`cat`/`grep`/`sed` を必須経路に置かない。Mac / Windows 両対応・正規化の一貫性）。

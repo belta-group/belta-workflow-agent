@@ -93,6 +93,8 @@ NousResearch/hermes-agent の自然言語 cron スケジューラ相当。**同�
 
 - 週次「notes 振り返り」ジョブ = `insights` を定期実行（`belta-wf-weekly-notes`）。
 - 週次/隔週「user-model 深化」ジョブ = `user-model` を定期実行（`belta-wf-user-model`）。
+- 日次「アバター更新」ジョブ = `avatar` の集計＋ダッシュボード再生成を定期実行（`belta-wf-daily-avatar`）。決定的なのでトークンをほぼ消費しない。
+- 週次「成長日記」ジョブ = `avatar`＋`insights` で 1 週間の成長を物語にする（`belta-wf-weekly-growth`）。
 
 いずれもジョブ本文に各スキルの手順（`notes-scan.js` の実行と要約）を焼き込む。独立セッションでは「スキルを呼ぶ」のでなく **手順を直接書く** ことに注意（テンプレ参照）。
 

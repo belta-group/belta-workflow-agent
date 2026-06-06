@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "anonymized": true,
+  "generated_date": "2026-06-07",
+  "level": 12,
+  "xp": 3450,
+  "xp_into_level": 150,
+  "xp_for_next": 1200,
+  "stage_index": 2,
+  "stats": {
+    "stamina": 64,
+    "wisdom": 58,
+    "power": 45,
+    "agility": 72,
+    "versatility": 80,
+    "discipline": 90
+  },
+  "streak": { "current": 9, "max": 14 },
+  "badges_earned": [
+    { "id": "first-steps", "tier": "bronze" },
+    { "id": "streak-7", "tier": "silver" },
+    { "id": "rule-collector", "tier": "silver" },
+    { "id": "first-hire", "tier": "bronze" },
+    { "id": "polyglot", "tier": "gold" }
+  ],
+  "badges_total": 16,
+  "skill_tree": {
+    "notion": { "hits": 18, "stage": "熟練" },
+    "slack": { "hits": 7, "stage": "育成中" },
+    "github": { "hits": 12, "stage": "育成中" },
+    "drive": { "hits": 3, "stage": "解放" }
+  },
+  "counts": {
+    "active_days": 21,
+    "sessions": 38,
+    "rules": 11,
+    "agents_adopted": 2,
+    "skills_authored": 1,
+    "memory": 4,
+    "usermodel_items": 9
+  }
+}

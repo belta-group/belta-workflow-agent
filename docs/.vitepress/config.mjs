@@ -63,6 +63,7 @@ export default defineConfig({
     nav: [
       { text: 'ホーム', link: '/' },
       { text: '利用ガイド', link: '/guide/getting-started' },
+      { text: '育成アバター', link: '/avatar' },
       { text: 'FAQ', link: '/guide/faq' }
     ],
 

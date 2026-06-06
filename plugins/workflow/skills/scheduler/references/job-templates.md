@@ -95,6 +95,44 @@
 
 ---
 
+## 5. 日次アバター更新（belta-wf-daily-avatar）
+
+推奨 cron 例: `30 8 * * *`（毎日 8:30）。「1 日 1 回、業務後にアバターを育てる」用途。
+
+```
+（共通前段に続けて）
+3. アバターを集計してダッシュボードを再生成する（いずれも決定的・LLM 消費なし・fail-open）:
+   node "<PLUGIN_ROOT>/scripts/avatar-stats.js" --md
+   node "<PLUGIN_ROOT>/scripts/avatar-render.js"
+4. 生成された <HOME>/.belta/dashboard.html のパスと、Lv・獲得バッジ・連続稼働を 3 行で控える。
+5. （任意・利用者が希望した場合のみ）レベルアップや新バッジ獲得があれば本人の Slack DM に短く知らせる。
+   ※ このジョブは GitHub 公開（--publish）を行わない。公開はローカルではなく利用者の明示操作に限る。
+```
+
+> 集計・描画は決定的 Node が担うため、このジョブはトークンをほぼ消費しない（通知文を書く分だけ）。
+
+---
+
+## 6. 週次 成長日記（belta-wf-weekly-growth）
+
+推奨 cron 例: `20 9 * * 1`（毎週月曜 9:20）。アバターの 1 週間の成長を物語にする（`insights` の成長日記に相当）。
+
+```
+（共通前段に続けて）
+3. アバターの現在値と直近 notes を集計する:
+   node "<PLUGIN_ROOT>/scripts/avatar-stats.js" --json
+   node "<PLUGIN_ROOT>/scripts/notes-scan.js" --days 7
+4. 先週からの成長を「育成日記」として日常語でまとめる:
+   - 今の Lv と段階、先週比で増えたもの（ルール / エージェント / スキル / 連続稼働）
+   - 新しく獲得したバッジ、次に狙えるバッジ（locked の req を 1〜2 個）
+   - 励ましのひとこと（事実に基づく。創作しない）
+5. 結果を <HOME>/.belta/reports/<当日>-growth-diary.md に Write で保存する。
+```
+
+> これは `avatar` + `insights` の手順を独立セッション向けに直書きしたもの。数値は Node、物語は LLM。
+
+---
+
 ## 登録後の索引記録
 
 どのテンプレを使っても、登録後に `<HOME>/.belta/scheduler/JOBS.md` へ 1 行追記する:

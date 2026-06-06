@@ -12,6 +12,11 @@
 //   node scripts/aggregate-token-usage.js --json       # 機械可読 JSON（合計のみ）
 //   node scripts/aggregate-token-usage.js --dir <path> # 集計対象ディレクトリを差し替え
 //
+// import 利用:
+//   const { aggregateTokens } = require(".../aggregate-token-usage.js");
+//   const { found, sessions, totals, cache_hit_ratio } = aggregateTokens(dir);
+//   （関数版は決して process.exit しない＝avatar-stats.js 等から fail-open で使える）
+//
 // 設計方針:
 // - シェル非依存の Node.js（Claude Code 同梱 node でも素の node でも動く）。Mac / Windows 両対応。
 //   ホームは環境変数から解決し、パスは path API で連結する（区切り直書きしない）。
@@ -25,96 +30,75 @@ function resolveHome() {
   return process.env.HOME || process.env.USERPROFILE || os.homedir() || "";
 }
 
-// ---- 引数パース ----------------------------------------------------------------
-const argv = process.argv.slice(2);
-const flags = { md: false, json: false, dir: null };
-for (let i = 0; i < argv.length; i++) {
-  const a = argv[i];
-  if (a === "--md") flags.md = true;
-  else if (a === "--json") flags.json = true;
-  else if (a === "--dir") flags.dir = argv[++i];
-  else if (a === "-h" || a === "--help") {
-    process.stdout.write(
-      [
-        "使い方: node scripts/aggregate-token-usage.js [--md|--json] [--dir <path>]",
-        "  既定の集計対象: <home>/.belta/audit/tokens/",
-      ].join("\n") + "\n"
-    );
-    process.exit(0);
-  }
+function defaultTokensDir() {
+  return path.join(resolveHome(), ".belta", "audit", "tokens");
 }
 
-const targetDir = flags.dir || path.join(resolveHome(), ".belta", "audit", "tokens");
+// ---- 集計コア（決して process.exit しない・例外も握りつぶす）-----------------
+// 戻り値: { source_dir, found, sessions[], totals, cache_hit_ratio }
+//   found=false は「ディレクトリが無い / 集計対象セッションが 0」を表す。
+function aggregateTokens(dir) {
+  const targetDir = dir || defaultTokensDir();
+  const totals = {
+    sessions: 0,
+    turns: 0,
+    input_tokens: 0,
+    output_tokens: 0,
+    cache_creation_input_tokens: 0,
+    cache_read_input_tokens: 0,
+    billable_token_estimate: 0,
+  };
 
-// ---- 読み込み -------------------------------------------------------------------
-let files = [];
-try {
-  files = fs
-    .readdirSync(targetDir)
-    .filter((f) => f.endsWith(".json") && !f.startsWith(".")); // .tmp 等は除外
-} catch {
-  process.stderr.write(
-    `トークンログが見つかりません: ${targetDir}\n` +
-      `（まだセッションが記録されていないか、--dir でパスを指定してください）\n`
-  );
-  process.exit(1);
-}
-
-const sessions = [];
-for (const f of files) {
+  let files = [];
   try {
-    const rec = JSON.parse(fs.readFileSync(path.join(targetDir, f), "utf8"));
-    if (!rec || typeof rec !== "object" || !rec.usage) continue;
-    sessions.push(rec);
+    files = fs.readdirSync(targetDir).filter((f) => f.endsWith(".json") && !f.startsWith("."));
   } catch {
-    // 壊れたファイルはスキップ
+    return { source_dir: targetDir, found: false, sessions: [], totals, cache_hit_ratio: 0 };
   }
+
+  const sessions = [];
+  for (const f of files) {
+    try {
+      const rec = JSON.parse(fs.readFileSync(path.join(targetDir, f), "utf8"));
+      if (!rec || typeof rec !== "object" || !rec.usage) continue;
+      sessions.push(rec);
+    } catch {
+      // 壊れたファイルはスキップ
+    }
+  }
+
+  if (sessions.length === 0) {
+    return { source_dir: targetDir, found: false, sessions: [], totals, cache_hit_ratio: 0 };
+  }
+
+  // updated_at で安定ソート（古い→新しい）
+  sessions.sort((a, b) => (a.updated_at_unix || 0) - (b.updated_at_unix || 0));
+
+  totals.sessions = sessions.length;
+  for (const s of sessions) {
+    totals.turns += Number(s.turns) || 0;
+    totals.input_tokens += Number(s.usage.input_tokens) || 0;
+    totals.output_tokens += Number(s.usage.output_tokens) || 0;
+    totals.cache_creation_input_tokens += Number(s.usage.cache_creation_input_tokens) || 0;
+    totals.cache_read_input_tokens += Number(s.usage.cache_read_input_tokens) || 0;
+    totals.billable_token_estimate += Number(s.billable_token_estimate) || 0;
+  }
+
+  // キャッシュヒット率: cache_read / (cache_read + cache_creation + 非キャッシュ input)
+  const cacheDenom =
+    totals.cache_read_input_tokens + totals.cache_creation_input_tokens + totals.input_tokens;
+  const cacheHitRatio = cacheDenom > 0 ? totals.cache_read_input_tokens / cacheDenom : 0;
+
+  return {
+    source_dir: targetDir,
+    found: true,
+    sessions,
+    totals,
+    cache_hit_ratio: Number(cacheHitRatio.toFixed(4)),
+  };
 }
 
-if (sessions.length === 0) {
-  process.stderr.write(`集計可能なセッション記録が ${targetDir} にありません。\n`);
-  process.exit(1);
-}
-
-// updated_at で安定ソート（古い→新しい）
-sessions.sort((a, b) => (a.updated_at_unix || 0) - (b.updated_at_unix || 0));
-
-// ---- 合算 -----------------------------------------------------------------------
-const totals = {
-  sessions: sessions.length,
-  turns: 0,
-  input_tokens: 0,
-  output_tokens: 0,
-  cache_creation_input_tokens: 0,
-  cache_read_input_tokens: 0,
-  billable_token_estimate: 0,
-};
-for (const s of sessions) {
-  totals.turns += Number(s.turns) || 0;
-  totals.input_tokens += Number(s.usage.input_tokens) || 0;
-  totals.output_tokens += Number(s.usage.output_tokens) || 0;
-  totals.cache_creation_input_tokens += Number(s.usage.cache_creation_input_tokens) || 0;
-  totals.cache_read_input_tokens += Number(s.usage.cache_read_input_tokens) || 0;
-  totals.billable_token_estimate += Number(s.billable_token_estimate) || 0;
-}
-
-// キャッシュヒット率: cache_read / (cache_read + cache_creation + 非キャッシュ input)
-const cacheDenom =
-  totals.cache_read_input_tokens + totals.cache_creation_input_tokens + totals.input_tokens;
-const cacheHitRatio = cacheDenom > 0 ? totals.cache_read_input_tokens / cacheDenom : 0;
-
-// ---- 出力 -----------------------------------------------------------------------
-if (flags.json) {
-  process.stdout.write(
-    JSON.stringify(
-      { source_dir: targetDir, cache_hit_ratio: Number(cacheHitRatio.toFixed(4)), totals },
-      null,
-      2
-    ) + "\n"
-  );
-  process.exit(0);
-}
-
+// ---- 表示ヘルパー ------------------------------------------------------------
 function fmt(n) {
   return Number(n || 0).toLocaleString("en-US");
 }
@@ -130,67 +114,113 @@ function ymd(unix) {
   return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`;
 }
 
-if (flags.md) {
-  const lines = [];
-  lines.push(`## トークン使用量 実測（Phase -1 ドッグフード）`);
-  lines.push("");
-  lines.push(`- 集計元: \`${targetDir}\``);
-  lines.push(`- セッション数: ${fmt(totals.sessions)} / 総ターン数: ${fmt(totals.turns)}`);
-  lines.push(`- キャッシュヒット率（read / 全入力）: ${(cacheHitRatio * 100).toFixed(1)}%`);
-  lines.push("");
-  lines.push(`| セッション | 日付 | ターン | input | output | cache作成 | cache読取 | 課金相当(概算) |`);
-  lines.push(`| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |`);
-  for (const s of sessions) {
+// ---- CLI 本体 ----------------------------------------------------------------
+function runCli() {
+  const argv = process.argv.slice(2);
+  const flags = { md: false, json: false, dir: null };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === "--md") flags.md = true;
+    else if (a === "--json") flags.json = true;
+    else if (a === "--dir") flags.dir = argv[++i];
+    else if (a === "-h" || a === "--help") {
+      process.stdout.write(
+        [
+          "使い方: node scripts/aggregate-token-usage.js [--md|--json] [--dir <path>]",
+          "  既定の集計対象: <home>/.belta/audit/tokens/",
+        ].join("\n") + "\n"
+      );
+      process.exit(0);
+    }
+  }
+
+  const result = aggregateTokens(flags.dir);
+  const { source_dir: targetDir, found, sessions, totals, cache_hit_ratio: cacheHitRatio } = result;
+
+  if (!found) {
+    process.stderr.write(
+      `トークンログが見つかりません: ${targetDir}\n` +
+        `（まだセッションが記録されていないか、--dir でパスを指定してください）\n`
+    );
+    process.exit(1);
+  }
+
+  if (flags.json) {
+    process.stdout.write(
+      JSON.stringify({ source_dir: targetDir, cache_hit_ratio: cacheHitRatio, totals }, null, 2) + "\n"
+    );
+    process.exit(0);
+  }
+
+  if (flags.md) {
+    const lines = [];
+    lines.push(`## トークン使用量 実測（Phase -1 ドッグフード）`);
+    lines.push("");
+    lines.push(`- 集計元: \`${targetDir}\``);
+    lines.push(`- セッション数: ${fmt(totals.sessions)} / 総ターン数: ${fmt(totals.turns)}`);
+    lines.push(`- キャッシュヒット率（read / 全入力）: ${(cacheHitRatio * 100).toFixed(1)}%`);
+    lines.push("");
+    lines.push(`| セッション | 日付 | ターン | input | output | cache作成 | cache読取 | 課金相当(概算) |`);
+    lines.push(`| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |`);
+    for (const s of sessions) {
+      lines.push(
+        `| ${shortId(s.session_id)} | ${ymd(s.updated_at_unix)} | ${fmt(s.turns)} | ` +
+          `${fmt(s.usage.input_tokens)} | ${fmt(s.usage.output_tokens)} | ` +
+          `${fmt(s.usage.cache_creation_input_tokens)} | ${fmt(s.usage.cache_read_input_tokens)} | ` +
+          `${fmt(s.billable_token_estimate)} |`
+      );
+    }
     lines.push(
-      `| ${shortId(s.session_id)} | ${ymd(s.updated_at_unix)} | ${fmt(s.turns)} | ` +
-        `${fmt(s.usage.input_tokens)} | ${fmt(s.usage.output_tokens)} | ` +
-        `${fmt(s.usage.cache_creation_input_tokens)} | ${fmt(s.usage.cache_read_input_tokens)} | ` +
-        `${fmt(s.billable_token_estimate)} |`
+      `| **合計** | | **${fmt(totals.turns)}** | **${fmt(totals.input_tokens)}** | ` +
+        `**${fmt(totals.output_tokens)}** | **${fmt(totals.cache_creation_input_tokens)}** | ` +
+        `**${fmt(totals.cache_read_input_tokens)}** | **${fmt(totals.billable_token_estimate)}** |`
+    );
+    lines.push("");
+    lines.push(
+      `> 課金相当(概算) = input + output + cache作成 + cache読取×0.1。正確な料金ではなく、` +
+        `セッション間比較・総量把握のための目安。`
+    );
+    process.stdout.write(lines.join("\n") + "\n");
+    process.exit(0);
+  }
+
+  // 既定: 簡易テキスト表
+  process.stdout.write(`集計元: ${targetDir}\n`);
+  process.stdout.write(`セッション数: ${fmt(totals.sessions)}  総ターン数: ${fmt(totals.turns)}\n`);
+  process.stdout.write(`キャッシュヒット率: ${(cacheHitRatio * 100).toFixed(1)}%\n`);
+  process.stdout.write("\n");
+  process.stdout.write(
+    ["session".padEnd(14), "date".padEnd(12), "turns".padStart(6), "input".padStart(10), "output".padStart(10), "cache_rd".padStart(12), "billable".padStart(12)].join(" ") + "\n"
+  );
+  for (const s of sessions) {
+    process.stdout.write(
+      [
+        shortId(s.session_id).padEnd(14),
+        ymd(s.updated_at_unix).padEnd(12),
+        fmt(s.turns).padStart(6),
+        fmt(s.usage.input_tokens).padStart(10),
+        fmt(s.usage.output_tokens).padStart(10),
+        fmt(s.usage.cache_read_input_tokens).padStart(12),
+        fmt(s.billable_token_estimate).padStart(12),
+      ].join(" ") + "\n"
     );
   }
-  lines.push(
-    `| **合計** | | **${fmt(totals.turns)}** | **${fmt(totals.input_tokens)}** | ` +
-      `**${fmt(totals.output_tokens)}** | **${fmt(totals.cache_creation_input_tokens)}** | ` +
-      `**${fmt(totals.cache_read_input_tokens)}** | **${fmt(totals.billable_token_estimate)}** |`
-  );
-  lines.push("");
-  lines.push(
-    `> 課金相当(概算) = input + output + cache作成 + cache読取×0.1。正確な料金ではなく、` +
-      `セッション間比較・総量把握のための目安。`
-  );
-  process.stdout.write(lines.join("\n") + "\n");
-  process.exit(0);
-}
-
-// 既定: 簡易テキスト表
-process.stdout.write(`集計元: ${targetDir}\n`);
-process.stdout.write(`セッション数: ${fmt(totals.sessions)}  総ターン数: ${fmt(totals.turns)}\n`);
-process.stdout.write(`キャッシュヒット率: ${(cacheHitRatio * 100).toFixed(1)}%\n`);
-process.stdout.write("\n");
-process.stdout.write(
-  ["session".padEnd(14), "date".padEnd(12), "turns".padStart(6), "input".padStart(10), "output".padStart(10), "cache_rd".padStart(12), "billable".padStart(12)].join(" ") + "\n"
-);
-for (const s of sessions) {
   process.stdout.write(
     [
-      shortId(s.session_id).padEnd(14),
-      ymd(s.updated_at_unix).padEnd(12),
-      fmt(s.turns).padStart(6),
-      fmt(s.usage.input_tokens).padStart(10),
-      fmt(s.usage.output_tokens).padStart(10),
-      fmt(s.usage.cache_read_input_tokens).padStart(12),
-      fmt(s.billable_token_estimate).padStart(12),
+      "TOTAL".padEnd(14),
+      "".padEnd(12),
+      fmt(totals.turns).padStart(6),
+      fmt(totals.input_tokens).padStart(10),
+      fmt(totals.output_tokens).padStart(10),
+      fmt(totals.cache_read_input_tokens).padStart(12),
+      fmt(totals.billable_token_estimate).padStart(12),
     ].join(" ") + "\n"
   );
 }
-process.stdout.write(
-  [
-    "TOTAL".padEnd(14),
-    "".padEnd(12),
-    fmt(totals.turns).padStart(6),
-    fmt(totals.input_tokens).padStart(10),
-    fmt(totals.output_tokens).padStart(10),
-    fmt(totals.cache_read_input_tokens).padStart(12),
-    fmt(totals.billable_token_estimate).padStart(12),
-  ].join(" ") + "\n"
-);
+
+// import 時は CLI を走らせない（require.main ガード）。
+if (require.main === module) {
+  runCli();
+}
+
+module.exports = { aggregateTokens, defaultTokensDir, resolveHome };

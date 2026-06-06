@@ -97,6 +97,8 @@ const CONFIG_ORDER = [
   "feature_scheduler",
   "feature_user_model",
   "feature_hallucination_memory",
+  "feature_avatar",
+  "feature_avatar_publish",
   "insights_default_days",
   "notes_retention_days",
 ];
@@ -152,6 +154,10 @@ function doInit() {
     feature_user_model: existing.feature_user_model || "true",
     // 事実訂正メモリ（hallucination-memory スキル）の有効化フラグ。
     feature_hallucination_memory: existing.feature_hallucination_memory || "true",
+    // 育成アバター（avatar スキル）の有効化フラグ。集計・ダッシュボード生成は決定的。
+    feature_avatar: existing.feature_avatar || "true",
+    // アバター数値の GitHub Pages 公開。機密配慮で既定オフ（明示有効化が必要）。
+    feature_avatar_publish: existing.feature_avatar_publish || "false",
     // /insights の既定走査日数（insights スキルが get で参照。未設定時は 7 にフォールバック）。
     insights_default_days: existing.insights_default_days || "7",
     // notes 日次ログの保持日数（notes-record.js の retention が参照）。
