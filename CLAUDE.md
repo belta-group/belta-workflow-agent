@@ -49,7 +49,7 @@ Belta 社内向けワークフロー自動化エージェント（Claude Code Pl
 
 ### スキル（`skills/*/SKILL.md`）
 
-`workflow`（メイン分岐）/ `notion-schema`（DB 設計知識）/ `rule-learning`（発話→ルール自動蓄積）/ `agent-learning`（業務領域→専用 subagent 自動生成）/ `skill-suggestion`（既製スキルの探索・導入）/ `skill-authoring`（専門業務→専用スキルを新規自作）/ `scheduler`（自然言語の定期実行を `mcp__scheduled-tasks` に委譲して登録・管理）/ `insights`（過去 notes を横断走査して振り返りを要約）/ `user-model`（notes から観察ベースの暗黙傾向を抽出し `~/.belta/user-model.md` を深化）/ `hallucination-memory`（エージェントが犯した**事実そのものの誤り**が 2 回以上繰り返されたら、訂正済みの正しい事実を `~/.belta/memory/` に恒久記録し、毎セッション読み込んで再発を防ぐ。`rule-learning`＝振る舞い／好みの訂正に対し、こちらは**事実**の訂正という別軸）。`description` の発話トリガーで発火する。
+`workflow`（メイン分岐）/ `notion-schema`（DB 設計知識）/ `rule-learning`（発話→ルール自動蓄積）/ `agent-learning`（業務領域→専用 subagent 自動生成）/ `skill-suggestion`（既製スキルの探索・導入）/ `skill-authoring`（専門業務→専用スキルを新規自作）/ `scheduler`（自然言語の定期実行を `mcp__scheduled-tasks` に委譲して登録・管理）/ `insights`（過去 notes を横断走査して振り返りを要約）/ `report`（デイリー/ウィークリー/マンスリーの自己成長レポート。notes ＋ avatar-stats を材料に「やったこと／成長した点／次のアクション／学ぶとよいこと」を生成。insights＝過去の振り返り、report＝成長＋前向きの次アクション・学習提案、の住み分け。決定的走査＝`notes-scan.js`/`avatar-stats.js`、意味づけ・助言＝LLM）/ `user-model`（notes から観察ベースの暗黙傾向を抽出し `~/.belta/user-model.md` を深化）/ `hallucination-memory`（エージェントが犯した**事実そのものの誤り**が 2 回以上繰り返されたら、訂正済みの正しい事実を `~/.belta/memory/` に恒久記録し、毎セッション読み込んで再発を防ぐ。`rule-learning`＝振る舞い／好みの訂正に対し、こちらは**事実**の訂正という別軸）。`description` の発話トリガーで発火する。
 
 > **能動機能 3 種（hermes-agent から移植）**: scheduler（定期実行）/ insights（振り返り）/ user-model（ユーザーモデル深化）。「貯める／その場で分岐する」だけの秘書を「定期的に動き・振り返り・利用者像を深める」能動的な秘書へ拡張する。**決定的な走査・cron 生成は Node スクリプト（`scripts/notes-scan.js`・`scripts/schedule-spec.js`）、意味判断・要約・ファイル更新は LLM スキル** という二層構造（notes-record.js ＋ workflow スキルと同じ役割分担）。scheduler が insights / user-model を週次ジョブとして定期起動するハブになる。定期ジョブは会話履歴ゼロの独立セッションで動くため、ジョブ本文は `agent_home` 解決まで含む**自己完結プロンプト**にする（`skills/scheduler/references/job-templates.md`）。taskId は利用者の他用途ジョブと衝突しない `belta-wf-` プレフィクス。生成物は `~/.belta/reports/`、索引は `~/.belta/scheduler/JOBS.md`、暗黙モデルは `~/.belta/user-model.md`（`profile.md` とは分離し上書きしない）。user-model は明示ルールを自動生成せず、強い傾向は rule-learning へ橋渡しするだけ（rule-learning＝明示／user-model＝暗黙の住み分け）。`mcp__scheduled-tasks` 未提供環境では `CronCreate(durable)`→手動運用へ縮退。
 
@@ -57,7 +57,7 @@ Belta 社内向けワークフロー自動化エージェント（Claude Code Pl
 
 ### コマンド（`commands/*.md`）
 
-`/workflow`（エントリポイント、`workflow` スキルを呼ぶ）/ `/workflow-setup`（専用フォルダ作成 + ローカル有効化 → 5問オンボーディング → `scripts/belta-init.js` 実行 → `~/.belta/.onboarded` 作成 → 専用フォルダで開き直す案内）/ `/workflow-schedule`（`scheduler` スキルを呼ぶ。定期ジョブの登録/一覧/削除）/ `/insights`（`insights` スキルを呼ぶ。`[--days N] [--topic X]`）。
+`/workflow`（エントリポイント、`workflow` スキルを呼ぶ）/ `/workflow-setup`（専用フォルダ作成 + ローカル有効化 → 5問オンボーディング → `scripts/belta-init.js` 実行 → `~/.belta/.onboarded` 作成 → 専用フォルダで開き直す案内）/ `/workflow-schedule`（`scheduler` スキルを呼ぶ。定期ジョブの登録/一覧/削除）/ `/insights`（`insights` スキルを呼ぶ。`[--days N] [--topic X]`）/ `/report`（`report` スキルを呼ぶ。`[daily|weekly|monthly]`、略 `d|w|m`・省略時 daily。自己成長レポート）。
 
 ### スクリプト（`scripts/*.js`）
 

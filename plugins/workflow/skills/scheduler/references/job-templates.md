@@ -133,6 +133,35 @@
 
 ---
 
+## 7. 自己成長レポート（belta-wf-daily-report / -weekly-report / -monthly-report）
+
+`/report` 相当を定期実行する。手動コマンドの定期版（`report` スキルの手順を独立セッション向けに直書き）。3 周期それぞれ別ジョブとして登録する（必要なものだけでよい）。
+
+推奨 cron 例:
+- デイリー `belta-wf-daily-report`: `5 8 * * 1-5`（平日 8:05）
+- ウィークリー `belta-wf-weekly-report`: `30 9 * * 1`（毎週月曜 9:30）
+- マンスリー `belta-wf-monthly-report`: `0 9 1 * *`（毎月 1 日 9:00）
+
+```
+（共通前段に続けて）
+3. 周期に応じた走査日数 N を決める（daily=1 / weekly=7 / monthly=30）。活動と成長を集計する:
+   node "<PLUGIN_ROOT>/scripts/notes-scan.js" --days <N>
+   node "<PLUGIN_ROOT>/scripts/avatar-stats.js" --json
+   （任意で <HOME>/.belta/reports/ の前回同種レポート・todos/・inbox/ も読む）
+4. 4 セクションでまとめる（<PLUGIN_ROOT>/skills/report/references/report-templates.md に従う）:
+   ① やったこと ② 成長した点 ③ 次のアクション ④ 学ぶとよいこと。
+   - アドバイスは観察データを根拠にし、創作しない。
+   - マンスリーは notes 保持期間（既定14日）の都合で生履歴が30日揃わない旨を明記し、
+     成長は累計指標（avatar の history.json）と過去レポートで補う。
+5. 結果を <HOME>/.belta/reports/<当日>-<period>-report.md に Write で保存する（period=daily/weekly/monthly）。
+6. （任意・利用者が希望した場合のみ）要点を本人の Slack DM に短く知らせる。
+   機密度が社外秘/極秘の項目は要約から除くか抽象化する。独立セッションなので AskUserQuestion はしない。
+```
+
+> 数値・走査は Node（決定的）、要約とアドバイスは LLM。`/report` の手動実行と同じ生成物（`reports/<当日>-<period>-report.md`）になる。
+
+---
+
 ## 登録後の索引記録
 
 どのテンプレを使っても、登録後に `<HOME>/.belta/scheduler/JOBS.md` へ 1 行追記する:
