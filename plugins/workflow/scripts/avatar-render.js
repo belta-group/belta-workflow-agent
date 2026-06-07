@@ -289,7 +289,9 @@ function buildHtml(stats, meta, activeDays) {
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif; padding:24px; }
   .wrap { max-width:1000px; margin:0 auto; }
   h1 { font-size:20px; margin:0 0 16px; }
-  .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  /* minmax(0,1fr) で各トラックの min-content 下限を外し、中身（固定幅 SVG / ヒートマップ）に
+     引きずられてトラック幅が不均等／オーバーフローするのを防ぐ（左右パネルを常に等幅に保つ） */
+  .grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:16px; align-items:stretch; }
   .panel { background:var(--panel); border:1px solid #2c3357; border-radius:16px; padding:20px; }
   .panel h2 { font-size:14px; color:var(--sub); margin:0 0 14px; letter-spacing:.04em; }
   .hero { display:flex; gap:24px; align-items:center; grid-column:1 / -1; }
@@ -309,10 +311,13 @@ function buildHtml(stats, meta, activeDays) {
   .stat { background:var(--panel2); border-radius:10px; padding:8px 10px; }
   .stat .k { font-size:11px; color:var(--sub); }
   .stat .v { font-size:20px; font-weight:700; }
-  .radar-wrap { text-align:center; }
-  .radar-wrap svg { width:100%; height:auto; max-width:320px; }
-  .heatmap { display:grid; grid-template-rows:repeat(7,12px); grid-auto-flow:column; grid-auto-columns:12px; gap:3px; max-width:100%; overflow-x:auto; }
-  .cell { width:12px; height:12px; border-radius:3px; background:#222a52; }
+  /* レーダーはパネル内で天地中央寄せ（ヒートマップ側と高さが揃っても間延びしない） */
+  .radar-wrap { text-align:center; display:flex; flex-direction:column; }
+  .radar-wrap svg { width:100%; height:auto; max-width:320px; margin:auto; }
+  /* ヒートマップは 16 週 × 7 日をパネル幅いっぱいに敷き詰める（固定 12px だと余白だらけで
+     ステータス側とバランスが崩れるため、セルを可変幅＝正方形にして横いっぱいに広げる） */
+  .heatmap { display:grid; grid-template-columns:repeat(16, minmax(0,1fr)); grid-template-rows:repeat(7, auto); grid-auto-flow:column; gap:4px; width:100%; }
+  .cell { aspect-ratio:1; border-radius:3px; background:#222a52; }
   .cell.on { background:#7cc4ff; }
   .badge-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:10px; }
   .badge { background:var(--panel2); border-radius:10px; padding:10px; display:flex; align-items:center; gap:8px; }
