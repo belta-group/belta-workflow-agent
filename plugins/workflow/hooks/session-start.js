@@ -79,7 +79,8 @@ function writeVersionState(p, version) {
   }
 }
 
-const contexts = [];
+const contexts = []; // LLM へ渡す追加文脈（additionalContext。利用者画面には出ない）
+const systemMessages = []; // 利用者に直接見せるメッセージ（systemMessage。LLM 任せにしない）
 
 try {
   const home = homeDir();
@@ -232,9 +233,11 @@ try {
 
   // (E) プラグイン更新通知:
   //     同梱マニフェストの version を ~/.belta/plugin-version.json の前回値と比較し、
-  //     変化していれば「更新されました」案内を 1 回だけ注入する。Claude Code 画面右下の
+  //     変化していれば「更新されました」案内を 1 回だけ通知する。Claude Code 画面右下の
   //     注意バッジ（"N MCP servers need auth" 等）は組み込み専用スロットで外部から書けない
-  //     ため、確実に利用者の目に入る SessionStart の additionalContext で代替通知する。
+  //     ための代替。利用者には top-level systemMessage で**直接**表示し（LLM 任せにしない）、
+  //     あわせて additionalContext で LLM にも文脈を渡す（再実行の促し等）。additionalContext
+  //     だけだと最初の操作が slash command のとき応答に現れず取りこぼすため systemMessage を正とする。
   //     初回（記録が無い）は基準値を黙って保存するだけ＝誤って「更新」と出さない。通知後は
   //     記録を現行バージョンへ更新するので、同一バージョンの次セッション以降は無出力。
   try {
@@ -250,17 +253,26 @@ try {
         writeVersionState(stateFile, current);
       } else if (prevVer !== current) {
         const upgraded = compareVersions(current, prevVer) > 0;
+        const headline = upgraded
+          ? `Belta ワークフローエージェントが v${prevVer} → v${current} に更新されました。`
+          : `Belta ワークフローエージェントのバージョンが変わりました（v${prevVer} → v${current}）。`;
+        // (1) 利用者へ確実に表示する：top-level systemMessage（LLM 任せにしない）。
+        //     additionalContext は LLM にしか渡らず、最初の操作が slash command だと
+        //     応答に現れないことがある（実機で取りこぼしを確認）。人間向けの通知は
+        //     systemMessage を正とする。
+        systemMessages.push(
+          `🔔 ${headline} 生成済みダッシュボード（~/.belta/dashboard.html）等は再生成まで古いままです。/avatar や /report を再実行すると最新が反映されます。`
+        );
+        // (2) LLM にも文脈として渡す（応答に自然に一言添える・再実行を促す補助）。
         contexts.push(
           [
             "【Belta ワークフローエージェント 更新通知】",
             "",
-            upgraded
-              ? `プラグインが v${prevVer} → v${current} に更新されました。`
-              : `プラグインのバージョンが変わりました（v${prevVer} → v${current}）。`,
+            headline,
             "",
-            "ユーザーへの応答の冒頭で、この更新を一言知らせてください。生成済みの成果物（例: 育成アバターダッシュボード ~/.belta/dashboard.html）は再生成するまで古いままなので、必要なら対応するコマンド（/avatar や /report など）を再実行すると最新の内容・体裁が反映される旨も添えてください。変更点の詳細は README / docs を参照するよう案内して構いません。",
+            "この更新は利用者にも systemMessage で表示済みです。ユーザーへの応答に一言添えて構いません。生成済みの成果物（例: 育成アバターダッシュボード ~/.belta/dashboard.html）は再生成するまで古いままなので、必要なら対応するコマンド（/avatar や /report など）を再実行すると最新の内容・体裁が反映される旨も添えてください。変更点の詳細は README / docs を参照するよう案内して構いません。",
             "",
-            "ユーザーが別の用件を依頼している場合は、その用件を優先し、更新通知は一言添えるだけで構いません。",
+            "ユーザーが別の用件を依頼している場合は、その用件を優先する。",
           ].join("\n")
         );
         // 通知は 1 回限り。記録を現行バージョンへ更新する（次回は同一なので無出力）。
@@ -275,16 +287,19 @@ try {
   process.exit(0);
 }
 
-if (contexts.length === 0) {
+if (contexts.length === 0 && systemMessages.length === 0) {
   process.exit(0);
 }
 
-const output = {
-  hookSpecificOutput: {
-    hookEventName: "SessionStart",
-    additionalContext: contexts.join("\n\n---\n\n"),
-  },
-};
+const output = { hookSpecificOutput: { hookEventName: "SessionStart" } };
+if (contexts.length > 0) {
+  // LLM へ渡す追加文脈（利用者画面には出ない）。
+  output.hookSpecificOutput.additionalContext = contexts.join("\n\n---\n\n");
+}
+if (systemMessages.length > 0) {
+  // 利用者へ直接表示（LLM には渡らない）。確実に見せたい通知はこちら。
+  output.systemMessage = systemMessages.join("\n");
+}
 
 process.stdout.write(JSON.stringify(output) + "\n");
 process.exit(0);
