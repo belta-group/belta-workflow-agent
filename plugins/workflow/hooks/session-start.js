@@ -52,6 +52,33 @@ function pluginEnabledIn(settingsPath, name) {
   return Object.entries(s.enabledPlugins).some(([k, v]) => v === true && k.startsWith(name + "@"));
 }
 
+// "a.b.c" 形式のセマンティックバージョン比較。数値フィールドを順に比較し、数値化できない
+// 要素や桁数差は安全側（0 扱い）で処理する。a>b で 1、a<b で -1、等しければ 0。
+function compareVersions(a, b) {
+  const pa = String(a).split(".");
+  const pb = String(b).split(".");
+  const n = Math.max(pa.length, pb.length);
+  for (let i = 0; i < n; i++) {
+    const x = parseInt(pa[i], 10) || 0;
+    const y = parseInt(pb[i], 10) || 0;
+    if (x !== y) return x > y ? 1 : -1;
+  }
+  return 0;
+}
+
+// 直近に通知したバージョンを atomic に保存（次セッションで同一バージョンなら無出力にするため）。
+// 書けなくても通知判定は次回へ持ち越すだけ（fail-open）。
+function writeVersionState(p, version) {
+  try {
+    fs.mkdirSync(path.dirname(p), { recursive: true });
+    const tmp = p + ".tmp";
+    fs.writeFileSync(tmp, JSON.stringify({ version, updated_at: new Date().toISOString() }) + "\n");
+    fs.renameSync(tmp, p);
+  } catch {
+    /* fail-open */
+  }
+}
+
 const contexts = [];
 
 try {
@@ -201,6 +228,47 @@ try {
     }
   } catch {
     /* audit/repeat 無し・読めない等は黙って素通り（fail-open） */
+  }
+
+  // (E) プラグイン更新通知:
+  //     同梱マニフェストの version を ~/.belta/plugin-version.json の前回値と比較し、
+  //     変化していれば「更新されました」案内を 1 回だけ注入する。Claude Code 画面右下の
+  //     注意バッジ（"N MCP servers need auth" 等）は組み込み専用スロットで外部から書けない
+  //     ため、確実に利用者の目に入る SessionStart の additionalContext で代替通知する。
+  //     初回（記録が無い）は基準値を黙って保存するだけ＝誤って「更新」と出さない。通知後は
+  //     記録を現行バージョンへ更新するので、同一バージョンの次セッション以降は無出力。
+  try {
+    const root = process.env.CLAUDE_PLUGIN_ROOT || path.resolve(__dirname, "..");
+    const manifest = readJson(path.join(root, ".claude-plugin", "plugin.json"));
+    const current = manifest && typeof manifest.version === "string" ? manifest.version.trim() : "";
+    if (current) {
+      const stateFile = path.join(home, ".belta", "plugin-version.json");
+      const prev = readJson(stateFile);
+      const prevVer = prev && typeof prev.version === "string" ? prev.version.trim() : "";
+      if (!prevVer) {
+        // 記録が無い初回・既存利用者の本機能導入直後は、基準値の保存のみ（更新通知は出さない）。
+        writeVersionState(stateFile, current);
+      } else if (prevVer !== current) {
+        const upgraded = compareVersions(current, prevVer) > 0;
+        contexts.push(
+          [
+            "【Belta ワークフローエージェント 更新通知】",
+            "",
+            upgraded
+              ? `プラグインが v${prevVer} → v${current} に更新されました。`
+              : `プラグインのバージョンが変わりました（v${prevVer} → v${current}）。`,
+            "",
+            "ユーザーへの応答の冒頭で、この更新を一言知らせてください。生成済みの成果物（例: 育成アバターダッシュボード ~/.belta/dashboard.html）は再生成するまで古いままなので、必要なら対応するコマンド（/avatar や /report など）を再実行すると最新の内容・体裁が反映される旨も添えてください。変更点の詳細は README / docs を参照するよう案内して構いません。",
+            "",
+            "ユーザーが別の用件を依頼している場合は、その用件を優先し、更新通知は一言添えるだけで構いません。",
+          ].join("\n")
+        );
+        // 通知は 1 回限り。記録を現行バージョンへ更新する（次回は同一なので無出力）。
+        writeVersionState(stateFile, current);
+      }
+    }
+  } catch {
+    /* マニフェスト読めない・書けない等は黙って素通り（fail-open） */
   }
 } catch {
   // fail-open: 何が起きてもセッションを妨げない。
