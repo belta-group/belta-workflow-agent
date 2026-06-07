@@ -24,7 +24,8 @@ model: inherit — 数値の集計・HTML 生成は決定的 Node スクリプ�
 
 1. `node "${CLAUDE_PLUGIN_ROOT}/scripts/avatar-stats.js" --md` で集計（決定的・fail-open・LLM 消費なし）。
 2. `node "${CLAUDE_PLUGIN_ROOT}/scripts/avatar-render.js"` で `~/.belta/dashboard.html` を再生成。
-3. レベル・直近の成長・獲得バッジを会話に要約し、`avatar-render.js` 出力の `url`（`file://` リンク）を使って**クリック可能な Markdown リンク**で案内する（例: `[ダッシュボードを開く](<url>)`）。毎回パスを手入力／コピペさせない。OS の open コマンドは打たない。`url` が空のときのみ `out` のパスを文言で案内（fail-open）。
+3. レベル・直近の成長・獲得バッジを会話に要約する。OS の open コマンドは打たない。
+   - **【必須】ダッシュボードの案内は、`avatar-render.js` 出力の `markdown` の値（`[🎮 ダッシュボードを開く](file://…)`）を、そのまま 1 行で出力して締めること。** 生のファイルパスを本文に書いてはいけない（クリックできず毎回コピペになるため）。「ダッシュボードはこちら：<パス>」のような出し方は禁止。`markdown` が空のときだけ `out` のパスを文言で案内（fail-open）。
 4. `setup` 指定時のみ `avatar-setup.js` を呼び、名前（と任意の画像パス）を保存。
 5. `--publish` 指定時のみ、匿名化 → 目視確認 → `AskUserQuestion` → コミット/プッシュ（`ask` 権限）。
 

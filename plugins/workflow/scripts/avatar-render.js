@@ -438,6 +438,9 @@ function render(opts = {}) {
   } catch {
     fileUrl = "";
   }
+  // そのまま会話に貼れる Markdown リンク（呼び出し側はこれを 1 行で出力するだけでよい。
+  // 生パスを書かせないための「コピペ完成品」）。
+  const markdown = fileUrl ? `[🎮 ダッシュボードを開く](${fileUrl})` : "";
 
   try {
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
@@ -445,9 +448,9 @@ function render(opts = {}) {
     fs.writeFileSync(tmp, html);
     fs.renameSync(tmp, outPath);
   } catch {
-    return { ok: false, out: outPath, url: fileUrl };
+    return { ok: false, out: outPath, url: fileUrl, markdown };
   }
-  return { ok: true, out: outPath, url: fileUrl };
+  return { ok: true, out: outPath, url: fileUrl, markdown };
 }
 
 if (require.main === module) {
