@@ -6,9 +6,9 @@ const base = '/belta-workflow-agent/'
 
 export default defineConfig({
   lang: 'ja-JP',
-  title: 'Belta ワークフローエージェント',
+  title: 'BELTA ワークフローエージェント',
   description:
-    'Belta 社内向けワークフロー自動化エージェント（Claude Code Plugin）の利用ガイド。導入・OAuth 接続・使い方・セキュリティをまとめています。',
+    'BELTA 社内向けワークフロー自動化エージェント（Claude Code Plugin）の利用ガイド。導入・OAuth 接続・使い方・セキュリティをまとめています。',
   base,
 
   // docs/ をルートにしているため、利用者向けでない内部ドキュメント（背景・実装チェックリスト）と

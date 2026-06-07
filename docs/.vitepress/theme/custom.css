@@ -142,12 +142,51 @@
 }
 
 /* ===========================================================================
- * 6. ロゴ / ヒーロー画像
+ * 6. ロゴ / ヒーロー画像（ロゴ＝ヒーロー）
  *
- * ロゴは白背景の正方形イラスト。ヒーローでは角丸＋淡い影で馴染ませ、
- * 背後の淡ピンクグラデ（4. の --vp-home-hero-image-background-image）と調和させる。
+ * ロゴ画像はタイトル・キャッチコピーを内包する横長バナー。重複するヒーロー
+ * テキスト（name/text/tagline）は index.md から外し、ロゴそのものを大きく中央に
+ * 据えた「1 カラムのヒーロー」として見せる。下にアクションボタンを中央寄せで並べる。
+ *
+ * VitePress 既定のヒーロー画像は固定サイズの枠に絶対配置されるため、静的配置へ
+ * 上書き（!important）してから拡大・中央化する。
  * =========================================================================== */
+
+/* (1) ヒーローを縦 1 カラム・中央寄せにする（既定はデスクトップで横 2 カラム）。*/
+.VPHero .container {
+  flex-direction: column !important;
+}
+.VPHero .main {
+  order: 2;
+  text-align: center !important;
+  max-width: 100% !important;
+}
+.VPHero .actions {
+  justify-content: center !important;
+}
+.VPHero .image {
+  order: 1;
+  margin: 0 auto !important; /* 既定の負マージン（ブラー前提）を打ち消す */
+  max-width: 100%;
+}
+
+/* (2) ロゴ背後の淡ピンクのにじみ（小さな正方形前提）は横長ロゴに合わないので隠す。*/
+.VPHero .image-bg {
+  display: none !important;
+}
+
+/* (3) 固定枠＋絶対配置を解除して、ロゴを大きく自然に表示する。*/
+.VPHero .image-container {
+  width: auto !important;
+  height: auto !important;
+  transform: none !important;
+}
 .VPHero .VPImage.image-src {
+  position: static !important;
+  transform: none !important;
+  width: 100%;
+  max-width: min(760px, 92vw) !important; /* 既定 320px → 大きく */
+  max-height: none !important;
   border-radius: 24px;
   box-shadow: 0 8px 16px rgb(0 0 0 / 8%); /* EC-BELTA $shadow-lg を弱めた淡い影 */
 }
