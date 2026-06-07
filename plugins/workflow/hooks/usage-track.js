@@ -6,6 +6,8 @@
 // 決定的な下支え。1 つのスクリプトを 2 イベントに登録し、stdin の hook_event_name
 // で分岐して、それぞれ別ファイルに使用回数を加算する。
 //   - UserPromptSubmit: 送信がスラッシュコマンドなら commands.json に加算。
+//       生入力（先頭スラッシュ）と展開後本文（コマンド .md の H1 マーカー）の
+//       両系統で検出し、環境差（ターミナル / Claude Desktop 等）を吸収する。
 //   - PostToolUse(matcher Task): サブエージェント起動なら agents.json に加算。
 //
 // 二層分担（既存の notes-record.js / repeat-detect.js と同じ思想）:
@@ -83,12 +85,34 @@ function capEntries(map) {
 // ---- コマンド使用（UserPromptSubmit）----------------------------------------
 function trackCommand(payload, auditDir) {
   const prompt = String(payload.prompt || "");
-  // 先頭がスラッシュコマンドのときだけ拾う。展開後の文章には反応しない。
-  const m = /^\s*\/([a-zA-Z][\w-]*)/.exec(prompt);
-  if (!m) return;
-  const cmd = "/" + m[1].toLowerCase();
-
+  const cmd = detectCommand(prompt);
+  if (!cmd) return;
   bumpCounter(path.join(auditDir, "commands.json"), "commands", cmd);
+}
+
+// スラッシュコマンドを 2 系統で検出する（環境差を吸収）。
+//   (1) 生入力: 先頭がスラッシュコマンド。展開前テキストが UserPromptSubmit に渡る
+//       環境（ターミナル等）向け。
+//   (2) 展開後本文: ハーネスがコマンド .md を展開した本文を UserPromptSubmit に渡す
+//       環境（Claude Desktop 等。`UserPromptExpansion` 経路で展開される）向けの
+//       フォールバック。本リポジトリの各コマンド .md は本文先頭付近に必ず
+//       `# /<name> — …`（em-dash 区切り）の H1 を持つので、それを拾う。
+//
+// これが無いと、本文が `<!--` コメントで始まるコマンド（/avatar・/report 等）は
+// 生入力正規表現 (1) にマッチせず一切記録されず、結果として相対的に /workflow へ
+// 偏って見える（＝「avatar/report が workflow に合算」問題）。両系統で拾うことで
+// どの環境でもコマンドごとに個別計上する。発火経路は環境ごとに一方のみなので
+// 二重計上は起きない。
+function detectCommand(prompt) {
+  // (1) 生入力（先頭スラッシュ）。
+  const direct = /^\s*\/([a-zA-Z][\w-]*)/.exec(prompt);
+  if (direct) return "/" + direct[1].toLowerCase();
+  // (2) 展開後本文の H1 マーカー。先頭付近のみ走査して誤検知を抑える。
+  //     区切りは em-dash(—)/en-dash(–)/hyphen(-) のいずれも許容。
+  const head = prompt.split(/\r?\n/, 60).join("\n");
+  const heading = /^#[ \t]+\/([a-zA-Z][\w-]*)[ \t]+[—–-]/m.exec(head);
+  if (heading) return "/" + heading[1].toLowerCase();
+  return null;
 }
 
 // <auditDir>/<file> の mapKey 配下で name の count を +1（汎用。atomic・上限丸め・total 付き）。
