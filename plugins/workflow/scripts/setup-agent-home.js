@@ -142,11 +142,41 @@ function isOurAgentHome(folder) {
   return s.enabledPlugins[enabledKey] === true;
 }
 
+// ~/.belta/config.yaml に記録済みの agent_home を読む（フラット YAML の 1 行を素朴に拾う）。
+// ダウンロード型ブートストラップ（installer/bootstrap.js）は専用フォルダ名を
+// メール由来（<localpart>-agent）にするため、ここを参照しないと後続の /workflow-setup が
+// 既定の my-agent を別に作ってしまう。config の agent_home を最優先で再利用して一致させる。
+function agentHomeFromConfig() {
+  try {
+    const configPath = path.join(base, ".belta", "config.yaml");
+    const text = fs.readFileSync(configPath, "utf8");
+    for (const rawLine of text.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith("#")) continue;
+      const idx = line.indexOf(":");
+      if (idx < 0 || line.slice(0, idx).trim() !== "agent_home") continue;
+      let val = line.slice(idx + 1).trim();
+      if (val.length >= 2 && val.startsWith('"') && val.endsWith('"')) {
+        val = val.slice(1, -1).replace(/\\"/g, '"').replace(/\\\\/g, "\\");
+      }
+      return val || null;
+    }
+  } catch {
+    /* config 無し等は無視（旧フローは config 生成前に setup を呼ぶ） */
+  }
+  return null;
+}
+
 function pickFolder() {
   if (dirOverride) return { folder: path.resolve(dirOverride), reused: fs.existsSync(dirOverride) };
   if (nameOverride) {
     const folder = path.join(base, nameOverride);
     return { folder, reused: fs.existsSync(folder) };
+  }
+  // config.yaml に agent_home が記録済みなら最優先で再利用（ブートストラップ経路との一致）。
+  const recorded = agentHomeFromConfig();
+  if (recorded && fs.existsSync(recorded)) {
+    return { folder: path.resolve(recorded), reused: true };
   }
   // my-agent, my-agent-2, my-agent-3 … を順に見る。
   //   - 存在しない → そこを作る。

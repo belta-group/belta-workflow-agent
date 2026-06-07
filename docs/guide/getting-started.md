@@ -8,6 +8,36 @@ Notion・Slack・Google Drive・GitHub の 4 つの道具を、用件に応じ�
 
 順に進めてください。
 
+## いちばん簡単な始め方：インストーラーをダウンロード
+
+**結論から言うと —** お使いの OS のインストーラーをダウンロードしてダブルクリックすれば、専用の執務室（フォルダ）作りとエージェント本体の取り込み準備が**自動で**終わります。下のボタンからどうぞ。
+
+<p>
+  <a class="vp-button" href="https://github.com/belta-group/belta-workflow-agent/releases/latest/download/belta-installer-macos.zip"><strong>⬇️ macOS 用インストーラー</strong></a>
+  &nbsp;
+  <a class="vp-button" href="https://github.com/belta-group/belta-workflow-agent/releases/latest/download/belta-installer-windows.zip"><strong>⬇️ Windows 用インストーラー</strong></a>
+</p>
+
+使い方は 3 ステップだけです。
+
+1. ダウンロードした zip を展開し、**macOS は `install.command`／Windows は `install.bat`** をダブルクリックする。
+2. 画面の案内にしたがって**会社のメールアドレス（`@belta.co.jp`）**を入力する。これで `~/<メールの@より前>-agent` という専用の執務室が用意され、エージェントを取り込む準備が整います。
+3. 案内された専用フォルダを Claude Code で開き、`/workflow-setup` を実行する（このあと [Step 3](#step-3-初回セットアップを始める) 以降と同じ）。
+
+::: warning このインストーラーが自動化するのは「準備」までです
+インストーラーは、フォルダ作成とエージェント取り込みの**下ごしらえ**を肩代わりするものです。次の 2 つは引き続き必要です。
+- **Claude Code（claude.ai の Max / Team / Enterprise プラン）の導入** … エージェントが動く土台。未導入なら先に入れてください（次の「前提の確認」参照）。
+- **5 問の自己紹介と 4 アプリの「許可」操作** … プロフィール登録（[Step 4](#step-4-5-問オンボーディング)）と OAuth 接続（[Step 5](#step-5-4-ツールの-oauth-接続)）は、安全のため必ずあなた自身の操作で行います。
+:::
+
+::: tip macOS で「開発元を検証できません」と出たら
+初回だけ、`install.command` を**右クリック →「開く」**を選んでください（ダブルクリックの代わり）。一度許可すれば次回からはダブルクリックで開けます。
+:::
+
+::: info コマンドで入れたい方はこのまま下へ
+インストーラーを使わず、Claude Code にコマンドを打って導入することもできます。その場合は下の [Step 1](#step-1-専用の執務室-フォルダ-を用意する) 以降の手順に進んでください（どちらの方法でも到達点は同じです）。
+:::
+
 ## 前提の確認
 
 **まず、お使いの環境がこのエージェントを使える状態か確認します。** 次の 2 点を満たしていれば準備完了です。

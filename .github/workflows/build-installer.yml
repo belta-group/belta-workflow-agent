@@ -1,0 +1,56 @@
+name: build-installer
+
+# ダウンロード型インストーラー（installer/）の Release 資産を生成・添付する。
+# docs/guide/getting-started.md のダウンロードボタンは
+#   releases/latest/download/belta-installer-macos.zip
+#   releases/latest/download/belta-installer-windows.zip
+# を参照するため、Release 公開時にこの 2 つの zip を自動アップロードする。
+#
+# 注: ここはビルド（CI ランナー）であり、利用者環境ではない。zip 生成にシェル（zip）を
+# 使うのは cross-platform.md の対象外（同規約は「利用者環境で動く実装」を縛るもの）。
+# 利用者が実行する中身（bootstrap.js）は Node 単一実装で両 OS 対応している。
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch: # 手動でも資産を作り直せるように
+
+permissions:
+  contents: write # Release への資産アップロードに必要
+
+jobs:
+  package:
+    name: package installers
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build zip artifacts
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          # macOS 一式（install.command の実行ビットを保つため zip を使う）
+          chmod +x installer/install.command
+          (cd installer && zip -X ../dist/belta-installer-macos.zip \
+              install.command bootstrap.js README.md)
+          # Windows 一式（.bat は実行ビット不要）
+          (cd installer && zip -X ../dist/belta-installer-windows.zip \
+              install.bat bootstrap.js README.md)
+          ls -l dist
+
+      - name: Upload to release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            dist/belta-installer-macos.zip \
+            dist/belta-installer-windows.zip \
+            --clobber
+
+      - name: Upload as workflow artifact (manual runs)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: belta-installers
+          path: dist/*.zip
