@@ -310,7 +310,8 @@ function buildHtml(stats, meta, activeDays) {
   .stat .k { font-size:11px; color:var(--sub); }
   .stat .v { font-size:20px; font-weight:700; }
   .radar-wrap { text-align:center; }
-  .heatmap { display:grid; grid-template-rows:repeat(7,12px); grid-auto-flow:column; grid-auto-columns:12px; gap:3px; }
+  .radar-wrap svg { width:100%; height:auto; max-width:320px; }
+  .heatmap { display:grid; grid-template-rows:repeat(7,12px); grid-auto-flow:column; grid-auto-columns:12px; gap:3px; max-width:100%; overflow-x:auto; }
   .cell { width:12px; height:12px; border-radius:3px; background:#222a52; }
   .cell.on { background:#7cc4ff; }
   .badge-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:10px; }
@@ -318,7 +319,7 @@ function buildHtml(stats, meta, activeDays) {
   .badge.locked { opacity:.4; }
   .bemoji { font-size:20px; }
   .bname { font-size:12px; }
-  .skill-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; }
+  .skill-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(100px,1fr)); gap:10px; }
   .skill { background:var(--panel2); border-radius:10px; padding:12px; text-align:center; border-bottom:4px solid #2c3357; }
   .skill.s1 { border-color:#5a7; } .skill.s2 { border-color:#7cc4ff; } .skill.s3 { border-color:#ffd84a; }
   .sname { font-weight:700; } .sstage { font-size:12px; color:var(--sub); margin:4px 0; } .shits { font-size:12px; color:var(--sub); }
@@ -335,7 +336,8 @@ function buildHtml(stats, meta, activeDays) {
   .rank-unit { font-size:11px; color:var(--sub); font-weight:400; margin-left:2px; }
   /* エージェント使用比率ドーナツ */
   .donut-wrap { display:flex; gap:18px; align-items:center; flex-wrap:wrap; }
-  .donut-svg { flex:0 0 180px; }
+  .donut-svg { flex:0 0 180px; max-width:100%; }
+  .donut-svg svg { width:100%; height:auto; max-width:180px; }
   .donut-legend { flex:1; min-width:160px; display:flex; flex-direction:column; gap:8px; }
   .lg-row { display:flex; align-items:center; gap:8px; font-size:13px; }
   .lg-dot { width:12px; height:12px; border-radius:3px; flex:0 0 12px; }
@@ -344,7 +346,16 @@ function buildHtml(stats, meta, activeDays) {
   /* チップ（採用エージェント / 自作スキル） */
   .chips { display:flex; flex-wrap:wrap; gap:8px; }
   .chip { background:var(--panel2); border:1px solid #2c3357; border-radius:999px; padding:5px 12px; font-size:13px; }
-  @media (max-width:720px){ .grid{grid-template-columns:1fr;} .hero{flex-direction:column;text-align:center;} }
+  /* タブレット: 2列は維持しつつ hero を縦並びに */
+  @media (max-width:900px){ .hero{flex-direction:column;text-align:center;} .hero-info{width:100%;} }
+  /* スマホ: 1列・余白圧縮・stat 2列 */
+  @media (max-width:600px){
+    body{padding:14px;}
+    .grid{grid-template-columns:1fr;}
+    .panel{padding:16px;}
+    .stat-list{grid-template-columns:repeat(2,1fr);}
+    .name{font-size:24px;}
+  }
 </style>
 </head>
 <body>

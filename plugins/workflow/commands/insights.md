@@ -19,7 +19,7 @@ model: inherit — notes の意味的なテーマ抽出・要約・抜け漏れ�
 - `--days N` — 何日分を振り返るか（既定は `config.yaml` の `insights_default_days`、未設定なら 7）。
 - `--topic <語>` — 特定テーマに絞る（その語を含む行を全 notes から拾う）。
 
-手順はすべて `skills/insights/SKILL.md` に従う。要点:
+手順はすべて `skills/insights/SKILL.md` に従う。**利用者に見せる振り返り・レポート・確認の文面はすべて日本語で出力する**（走査スクリプトのフィールド名が英語でも、まとめは日本語に翻訳する）。要点:
 
 1. `node "${CLAUDE_PLUGIN_ROOT}/scripts/notes-scan.js" --days <N> [--topic <語>]` を Bash で実行し、走査結果 JSON を受け取る（読み取り専用・fail-open）。
 2. JSON の `top_requests`（正規化キー頻度）・`sessions`・`topic_notes` を材料に、**テーマ抽出と振り返り**を日常語でまとめる。

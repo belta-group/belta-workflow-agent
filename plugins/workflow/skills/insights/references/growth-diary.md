@@ -1,6 +1,6 @@
 # 成長日記（育成アバター連携）の書き方
 
-`insights` が育成アバターの成長を「日記」として綴るときの手順。数値の算出は決定的な Node（[avatar](../../avatar/SKILL.md) の `avatar-stats.js`）、物語化だけ LLM が担う（二層分担）。
+`insights` が育成アバターの成長を「日記」として綴るときの手順。数値の算出は決定的な Node（[avatar](../../avatar/SKILL.md) の `avatar-stats.js`）、物語化だけ LLM が担う（二層分担）。**日記本文はすべて日本語で書く**（`avatar-stats.js` の JSON フィールドが英語でも、利用者に見せる文章は日本語に翻訳する）。
 
 ## 材料の取得
 

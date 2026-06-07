@@ -3,8 +3,8 @@ layout: home
 
 hero:
   name: Belta ワークフローエージェント
-  text: 4人の仲間と、今日の仕事に出かけよう
-  tagline: 旅の始まりは4人。話しかければ動き出し、経験を積むほどあなたに合わせて賢くなり、強くなる。
+  text: 「育てる」が、いちばん楽しい仕事になる。
+  tagline: 話しかけ、任せ、使いこむほどに賢く・強く・あなた専用に。世界に1人だけ、あなたの分身を育てる毎日。
   image:
     src: /logo.png
     alt: 4 つのアプリ（Notion・Slack・GitHub・Google Drive）を使い分ける、あなた専用の秘書のイラスト
