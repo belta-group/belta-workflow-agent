@@ -42,8 +42,9 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/avatar-stats.js" --md
 node "${CLAUDE_PLUGIN_ROOT}/scripts/avatar-render.js"
 ```
 
-- `~/.belta/dashboard.html` を自己完結 HTML（CDN 依存ゼロ）で再生成する。アバター画像があれば base64 で埋め込み、レーダーチャート・稼働ヒートマップ・バッジ・スキルツリーを描画。
-- 出力 JSON の `out` がパス。**OS の open コマンドは打たず**、「`~/.belta/dashboard.html` をブラウザで開いてください」とパスを案内する（POSIX: `$HOME` / Windows: `%USERPROFILE%` から解決）。
+- `~/.belta/dashboard.html` を自己完結 HTML（CDN 依存ゼロ）で再生成する。アバター画像があれば base64 で埋め込み、レーダーチャート・稼働ヒートマップ・バッジ・スキルツリー・**よく使うスキル／よく使う依頼／よく使うコマンド／エージェント使用比率（ドーナツ）／採用エージェント・自作スキル**を描画。
+- 「よく使う」系の集計は `~/.belta/notes/`（依頼）と `~/.belta/audit/skills.json`・`commands.json`・`agents.json`（`usage-track.js` フックが Skill / スラッシュコマンド / Task の発火を記録）に基づく。記録が無ければ各パネルは「まだ記録がありません」と正直表示する（创作しない）。これらは依頼文・スキル／コマンド／エージェント名を含むため **ローカル専用**。GitHub Pages 公開（`--publish`）では `avatar-anonymize.js` のホワイトリストにより一切出力されない。
+- 出力 JSON の `out` が絶対パス、`url` がクリックで開ける `file://` リンク。**OS の open コマンドは打たず**、案内は必ず **`url` を使ったクリック可能な Markdown リンク**で出す（毎回パスを手入力／コピペさせない）。例: `[ダッシュボードを開く](<url の値>)`。`url` が空のときのみ `out` のパスを文言で案内する（fail-open）。パスはホーム環境変数（POSIX: `$HOME` / Windows: `%USERPROFILE%`）から解決される。
 
 ### Step 3: 成長サマリの提示
 

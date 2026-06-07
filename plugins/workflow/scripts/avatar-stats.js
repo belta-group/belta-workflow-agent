@@ -269,23 +269,35 @@ function countAgents(beltaDir) {
   let fired = 0;
   let adopted = 0;
   let deleted = 0;
+  const adoptedNames = [];
   for (const line of text.split(/\r?\n/)) {
     const t = line.trim();
     if (!/^-\s*\[/.test(t)) continue;
     if (/fired:\s*\d{4}-\d{2}-\d{2}/.test(t)) fired++;
-    if (/adopted:\s*\d{4}-\d{2}-\d{2}/.test(t)) adopted++;
+    const isAdopted = /adopted:\s*\d{4}-\d{2}-\d{2}/.test(t);
+    if (isAdopted) adopted++;
     if (/deleted:\s*\d{4}-\d{2}-\d{2}/.test(t)) deleted++;
+    // 索引のリンク表示名 "- [表示名](slug.md) …" を採用済み・未削除のものだけ拾う
+    if (isAdopted && !/deleted:\s*\d{4}-\d{2}-\d{2}/.test(t)) {
+      const m = /^-\s*\[([^\]]+)\]/.exec(t);
+      if (m) adoptedNames.push(m[1].trim());
+    }
   }
-  return { fired, adopted, deleted };
+  return { fired, adopted, deleted, adoptedNames };
 }
 
 function countAuthoredSkills(beltaDir) {
   const text = readText(path.join(beltaDir, "skills", "AUTHORED.md"));
   let count = 0;
+  const names = [];
   for (const line of text.split(/\r?\n/)) {
-    if (/^-\s*\[[^\]]+\]\([^)]+\)/.test(line.trim())) count++;
+    const m = /^-\s*\[([^\]]+)\]\([^)]+\)/.exec(line.trim());
+    if (m) {
+      count++;
+      names.push(m[1].trim());
+    }
   }
-  return count;
+  return { count, names };
 }
 
 function countUserModelItems(beltaDir) {
@@ -406,6 +418,77 @@ function skillNode(hits) {
   return { hits, stage };
 }
 
+// ---- 使用状況（よく使う依頼 / コマンド / エージェント）------------------------
+// 反復検知と同じ正規化キーで「同じ趣旨の依頼」をまとめ、頻度上位を返す。
+function topRequests(sessionRows, n) {
+  const normalize = repeatUtil.normalizeRequest || ((s) => String(s || "").trim().toLowerCase());
+  // システムが挿入する非依頼マーカー（依頼として数えない）。
+  const isNoise = (s) => /^\[.*\]$/.test(s) || /request interrupted|tool use|api error|\[image #/i.test(s);
+  const counts = new Map(); // key -> { count, sample }
+  for (const row of sessionRows) {
+    for (const req of row.requests || []) {
+      const sample = String(req).replace(/\s+/g, " ").trim();
+      if (isNoise(sample)) continue;
+      const key = normalize(req);
+      if (!key) continue; // 相槌・短文・比較不適は除外
+      const cur = counts.get(key) || { count: 0, sample };
+      cur.count++;
+      if (sample.length > cur.sample.length) cur.sample = sample; // 代表文は長めを採用
+      counts.set(key, cur);
+    }
+  }
+  return [...counts.values()]
+    .filter((c) => c.count >= 1)
+    .sort((a, b) => b.count - a.count || a.sample.localeCompare(b.sample))
+    .slice(0, n)
+    .map((c) => ({ label: c.sample.slice(0, 60), count: c.count }));
+}
+
+// audit/commands.json / audit/agents.json（usage-track.js が書く）を読む。
+function readCounterMap(file, mapKey) {
+  const rec = readJson(file);
+  const map = rec && rec[mapKey] && typeof rec[mapKey] === "object" ? rec[mapKey] : {};
+  return Object.entries(map)
+    .map(([name, v]) => ({ name, count: Number(v && v.count) || 0 }))
+    .filter((e) => e.count > 0);
+}
+
+function computeUsage(beltaDir, notes, agents, skillsAuthoredObj) {
+  const auditDir = path.join(beltaDir, "audit");
+
+  // よく使うコマンド（上位 8）
+  const topCommands = readCounterMap(path.join(auditDir, "commands.json"), "commands")
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+    .slice(0, 8)
+    .map((e) => ({ label: e.name, count: e.count }));
+
+  // よく使うスキル（発火回数・上位 8）。usage-track.js が Skill ツール発火を記録。
+  const topSkills = readCounterMap(path.join(auditDir, "skills.json"), "skills")
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+    .slice(0, 8)
+    .map((e) => ({ label: e.name, count: e.count }));
+
+  // エージェント使用比率（上位 5 + その他）
+  const agentRows = readCounterMap(path.join(auditDir, "agents.json"), "agents").sort(
+    (a, b) => b.count - a.count || a.name.localeCompare(b.name)
+  );
+  const agentTotal = agentRows.reduce((s, e) => s + e.count, 0);
+  const TOP_N = 5;
+  let agentItems = agentRows.slice(0, TOP_N).map((e) => ({ name: e.name, count: e.count }));
+  const restCount = agentRows.slice(TOP_N).reduce((s, e) => s + e.count, 0);
+  if (restCount > 0) agentItems.push({ name: "その他", count: restCount });
+  agentItems = agentItems.map((e) => ({ ...e, pct: agentTotal > 0 ? Math.round((e.count / agentTotal) * 100) : 0 }));
+
+  return {
+    top_requests: topRequests(notes.sessionRows, 5),
+    top_skills: topSkills,
+    top_commands: topCommands,
+    agent_usage: { total: agentTotal, items: agentItems },
+    agents_adopted: agents.adoptedNames || [],
+    skills_authored: skillsAuthoredObj.names || [],
+  };
+}
+
 // ---- メイン集計 --------------------------------------------------------------
 function computeStats(opts = {}) {
   const beltaDir = opts.dir || path.join(homeDir(), ".belta");
@@ -416,10 +499,14 @@ function computeStats(opts = {}) {
   const tokenAgg = aggregateTokensInline(path.join(beltaDir, "audit", "tokens"));
   const rules = countRules(beltaDir);
   const agents = countAgents(beltaDir);
-  const skillsAuthored = countAuthoredSkills(beltaDir);
+  const skillsAuthoredObj = countAuthoredSkills(beltaDir);
+  const skillsAuthored = skillsAuthoredObj.count;
   const usermodelItems = countUserModelItems(beltaDir);
   const memoryCount = countMemory(beltaDir);
   const corrections = countCorrections(beltaDir);
+
+  // 使用状況（頻出依頼 / コマンド / エージェント呼び出し）— ダッシュボードの可視化用。
+  const usage = computeUsage(beltaDir, notes, agents, skillsAuthoredObj);
 
   // 永続台帳を更新（剪定耐性）
   let history = loadHistory(avatarDir);
@@ -531,6 +618,7 @@ function computeStats(opts = {}) {
       github: skillNode(tools.github),
       drive: skillNode(tools.drive),
     },
+    usage,
     raw: {
       first_seen: history.first_seen,
       sessions: history.sessions_total,

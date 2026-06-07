@@ -19,6 +19,7 @@
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
+const { pathToFileURL } = require("url");
 
 const { computeStats, STAGE_EMOJI, STAGE_NAME } = require(path.join(__dirname, "avatar-stats.js"));
 
@@ -201,12 +202,79 @@ function renderSkillTree(tree) {
     .join("");
 }
 
+// ---- 使用状況：ランキング（よく使う依頼 / コマンド）-------------------------
+function renderTopList(items, unit) {
+  if (!items || !items.length) {
+    return `<div class="empty">まだ記録がありません（使うほど貯まります）。</div>`;
+  }
+  const rows = items
+    .map(
+      (it, i) => `<div class="rank-row">
+        <span class="rank-no">${i + 1}</span>
+        <span class="rank-label">${esc(it.label)}</span>
+        <span class="rank-count">${Number(it.count) || 0}<span class="rank-unit">${esc(unit || "")}</span></span>
+      </div>`
+    )
+    .join("");
+  return `<div class="rank-list">${rows}</div>`;
+}
+
+// ---- 使用状況：エージェント使用比率（インライン SVG ドーナツ）---------------
+const DONUT_COLORS = ["#7cc4ff", "#b78cff", "#5ad1a5", "#ffd84a", "#ff8fb1", "#9aa3c7"];
+
+function renderDonut(usage) {
+  const items = (usage && usage.items) || [];
+  const total = (usage && usage.total) || 0;
+  if (!items.length || total <= 0) {
+    return `<div class="empty">まだエージェントの起動記録がありません。<br/>専用エージェントを使うほど内訳が貯まります。</div>`;
+  }
+  const cx = 90;
+  const cy = 90;
+  const r = 64; // 円の半径
+  const sw = 26; // ドーナツの太さ
+  const C = 2 * Math.PI * r;
+  let offset = 0;
+  let segs = "";
+  items.forEach((it, i) => {
+    const frac = (Number(it.count) || 0) / total;
+    const len = C * frac;
+    const color = DONUT_COLORS[i % DONUT_COLORS.length];
+    // 各セグメントを stroke-dasharray で描く（隙間を 1px 空けて視認性を上げる）
+    segs += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${sw}"
+      stroke-dasharray="${Math.max(0, len - 1).toFixed(2)} ${(C - Math.max(0, len - 1)).toFixed(2)}"
+      stroke-dashoffset="${(-offset).toFixed(2)}" transform="rotate(-90 ${cx} ${cy})"/>`;
+    offset += len;
+  });
+  const svg = `<svg viewBox="0 0 180 180" width="180" height="180" role="img" aria-label="エージェント使用比率">
+    ${segs}
+    <text x="${cx}" y="${cy - 4}" text-anchor="middle" fill="#e8ebff" font-size="26" font-weight="700">${total}</text>
+    <text x="${cx}" y="${cy + 16}" text-anchor="middle" fill="#9aa3c7" font-size="11">起動（累計）</text>
+  </svg>`;
+  const legend = items
+    .map(
+      (it, i) => `<div class="lg-row">
+        <span class="lg-dot" style="background:${DONUT_COLORS[i % DONUT_COLORS.length]}"></span>
+        <span class="lg-name">${esc(it.name)}</span>
+        <span class="lg-pct">${Number(it.pct) || 0}%</span>
+      </div>`
+    )
+    .join("");
+  return `<div class="donut-wrap"><div class="donut-svg">${svg}</div><div class="donut-legend">${legend}</div></div>`;
+}
+
+// ---- 使用状況：採用エージェント / 自作スキルのチップ ------------------------
+function renderChips(names, emptyText) {
+  if (!names || !names.length) return `<div class="empty">${esc(emptyText)}</div>`;
+  return `<div class="chips">${names.map((n) => `<span class="chip">${esc(n)}</span>`).join("")}</div>`;
+}
+
 // ---- HTML 全体 ---------------------------------------------------------------
 function buildHtml(stats, meta, activeDays) {
   const xpInto = stats.xp_into_level || 0;
   const xpFor = stats.xp_for_next || 1;
   const pct = Math.max(0, Math.min(100, Math.round((xpInto / Math.max(1, xpFor)) * 100)));
   const s = stats.stats || {};
+  const usage = stats.usage || { top_requests: [], top_skills: [], top_commands: [], agent_usage: { total: 0, items: [] }, agents_adopted: [], skills_authored: [] };
   return `<!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -255,6 +323,27 @@ function buildHtml(stats, meta, activeDays) {
   .skill.s1 { border-color:#5a7; } .skill.s2 { border-color:#7cc4ff; } .skill.s3 { border-color:#ffd84a; }
   .sname { font-weight:700; } .sstage { font-size:12px; color:var(--sub); margin:4px 0; } .shits { font-size:12px; color:var(--sub); }
   .foot { color:var(--sub); font-size:12px; margin-top:18px; text-align:center; }
+  .empty { color:var(--sub); font-size:13px; line-height:1.6; }
+  .sub-h { font-size:12px; color:var(--sub); margin-bottom:8px; }
+  /* よく使う依頼 / コマンドのランキング */
+  .rank-list { display:flex; flex-direction:column; }
+  .rank-row { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid #2c3357; }
+  .rank-row:last-child { border-bottom:none; }
+  .rank-no { flex:0 0 22px; font-weight:700; color:var(--accent); text-align:center; }
+  .rank-label { flex:1; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .rank-count { font-weight:700; font-size:18px; white-space:nowrap; }
+  .rank-unit { font-size:11px; color:var(--sub); font-weight:400; margin-left:2px; }
+  /* エージェント使用比率ドーナツ */
+  .donut-wrap { display:flex; gap:18px; align-items:center; flex-wrap:wrap; }
+  .donut-svg { flex:0 0 180px; }
+  .donut-legend { flex:1; min-width:160px; display:flex; flex-direction:column; gap:8px; }
+  .lg-row { display:flex; align-items:center; gap:8px; font-size:13px; }
+  .lg-dot { width:12px; height:12px; border-radius:3px; flex:0 0 12px; }
+  .lg-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .lg-pct { color:var(--sub); font-weight:700; }
+  /* チップ（採用エージェント / 自作スキル） */
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chip { background:var(--panel2); border:1px solid #2c3357; border-radius:999px; padding:5px 12px; font-size:13px; }
   @media (max-width:720px){ .grid{grid-template-columns:1fr;} .hero{flex-direction:column;text-align:center;} }
 </style>
 </head>
@@ -289,6 +378,19 @@ function buildHtml(stats, meta, activeDays) {
     </div>
 
     <div class="panel" style="grid-column:1 / -1;"><h2>スキルツリー（ツール習熟）</h2><div class="skill-grid">${renderSkillTree(stats.skill_tree)}</div></div>
+
+    <div class="panel"><h2>よく使うスキル（累計）</h2>${renderTopList(usage.top_skills, " 回")}</div>
+
+    <div class="panel"><h2>よく使う依頼（直近の蓄積）</h2>${renderTopList(usage.top_requests, " 回")}</div>
+
+    <div class="panel"><h2>よく使うコマンド（累計）</h2>${renderTopList(usage.top_commands, " 回")}</div>
+
+    <div class="panel"><h2>エージェント 使用比率</h2>${renderDonut(usage.agent_usage)}</div>
+
+    <div class="panel"><h2>あなた専用の担当者</h2>
+      <div class="sub-h">採用した専用エージェント</div>${renderChips(usage.agents_adopted, "まだ採用した専用エージェントはありません。")}
+      <div class="sub-h" style="margin-top:12px;">自作スキル</div>${renderChips(usage.skills_authored, "まだ自作スキルはありません。")}
+    </div>
 
     <div class="panel" style="grid-column:1 / -1;"><h2>実績バッジ（${(stats.badges.earned || []).length}/${(stats.badges.earned || []).length + (stats.badges.locked || []).length}）</h2>${renderBadges(stats.badges)}</div>
   </div>
@@ -328,15 +430,24 @@ function render(opts = {}) {
     html = placeholderHtml(meta.name);
   }
 
+  // クリックで開ける file:// URL（クロスプラットフォーム。Windows のバックスラッシュ
+  // やスペース・日本語も pathToFileURL が正しくエンコードする）。
+  let fileUrl = "";
+  try {
+    fileUrl = pathToFileURL(outPath).href;
+  } catch {
+    fileUrl = "";
+  }
+
   try {
     fs.mkdirSync(path.dirname(outPath), { recursive: true });
     const tmp = outPath + ".tmp";
     fs.writeFileSync(tmp, html);
     fs.renameSync(tmp, outPath);
   } catch {
-    return { ok: false, out: outPath };
+    return { ok: false, out: outPath, url: fileUrl };
   }
-  return { ok: true, out: outPath };
+  return { ok: true, out: outPath, url: fileUrl };
 }
 
 if (require.main === module) {

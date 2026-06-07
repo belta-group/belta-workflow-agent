@@ -81,6 +81,7 @@ export default defineConfig({
           text: '使い方',
           items: [
             { text: '基本的な使い方', link: '/guide/usage' },
+            { text: 'コマンド一覧', link: '/guide/commands' },
             { text: 'パーソナライズ機能', link: '/guide/personalization' }
           ]
         },
