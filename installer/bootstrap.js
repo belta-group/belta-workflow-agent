@@ -61,7 +61,9 @@ for (let i = 0; i < argv.length; i++) {
         "                    [--ref <branch|tag>] [--repo <owner/repo>]",
         "                    [--no-claude] [--dry-run] [--max-attempts <n>]",
         "",
-        "  --no-claude   claude CLI での自動インストールをせず、settings を宣言的に書くだけ",
+        "  --no-claude   claude CLI を使わず（自動導入もせず）settings を宣言的に書くだけ",
+        "                ※ 既定は: claude CLI が無ければ公式インストーラーで自動導入し、",
+        "                  PATH を通したうえでターミナル再起動を案内する",
         "",
       ].join("\n")
     );
@@ -285,8 +287,181 @@ function runClaude(args, cwd, stdio) {
   return spawnSync("claude", args, { cwd, stdio: stdio || "inherit", shell: IS_WIN });
 }
 
+// ---- claude CLI 自動インストール（フォールバック） ---------------------------
+//
+// claude CLI が無いときに公式インストーラーで導入する。インストール手段自体は
+// 本質的に OS 依存（curl / PowerShell / brew / npm）なので、ここは cross-platform.md の
+// 「OS 依存コマンドを必須経路に置かない」原則の許容例外。ただしパス解決・冪等性・
+// fail-open（失敗しても中止せず手動案内へ縮退）は引き続き厳守する。
+//
+// 方針: 公式ネイティブインストーラーを第一候補、npm を最終フォールバック。
+//       macOS では Homebrew / ネイティブを利用者に選ばせる（対話時のみ）。
+// インストール先（公式ネイティブ）: POSIX=$HOME/.local/bin/claude, Windows=%USERPROFILE%\.local\bin\claude.exe
+// PATH はネイティブインストーラーが自動で通すが、保険として ensureClaudeOnPath で冪等に補う。
+// 同一プロセスでは PATH 変更が反映されないため、導入後は「ターミナル再起動」を案内して終了する。
+
+// 公式ネイティブのインストール先 bin ディレクトリ（~/.local/bin）。
+function claudeBinDir() {
+  return path.join(homeDir(), ".local", "bin");
+}
+
+// あるディレクトリが現在の PATH に含まれるか（Windows は大文字小文字と末尾区切りを無視）。
+function isOnPath(dir) {
+  const sep = IS_WIN ? ";" : ":";
+  const norm = (s) => {
+    let v = String(s || "").replace(/[\\/]+$/, "");
+    return IS_WIN ? v.toLowerCase() : v;
+  };
+  const target = norm(dir);
+  return String(process.env.PATH || "")
+    .split(sep)
+    .some((e) => norm(e) === target);
+}
+
+// shell コマンド文字列を実行（パイプを含む native installer 用）。stdio:inherit で進捗を表示。
+function runShell(cmd) {
+  return spawnSync(cmd, { stdio: "inherit", shell: true });
+}
+
+// 指定 CLI が使えるか（--version が 0 で返れば true）。
+function commandWorks(bin) {
+  try {
+    const r = spawnSync(bin, ["--version"], { stdio: "ignore", shell: IS_WIN });
+    return !!(r && r.status === 0);
+  } catch {
+    return false;
+  }
+}
+
+// 各インストール手段（成功時 status===0）。
+function installNative() {
+  if (IS_WIN) {
+    // Windows PowerShell（5.1）は常に存在。プロファイル無効・実行ポリシー回避で公式 ps1 を実行。
+    return spawnSync(
+      "powershell",
+      ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", "irm https://claude.ai/install.ps1 | iex"],
+      { stdio: "inherit" }
+    );
+  }
+  return runShell("curl -fsSL https://claude.ai/install.sh | bash");
+}
+function installBrew() {
+  return runShell("brew install --cask claude-code");
+}
+function installNpm() {
+  return runShell("npm install -g @anthropic-ai/claude-code");
+}
+
+// claude CLI を自動インストールする。成功可否と採用手段を返す（fail-open）。
+async function installClaude() {
+  process.stdout.write(
+    "[bootstrap] Claude Code CLI が見つかりません。公式インストーラーで自動導入を試みます。\n"
+  );
+
+  const attempts = [];
+  if (process.platform === "darwin") {
+    // macOS: brew がある場合は利用者に選ばせる（対話時のみ。非対話はネイティブ既定）。
+    let useBrew = false;
+    const brewAvail = commandWorks("brew");
+    if (brewAvail && process.stdin.isTTY) {
+      const asker = makeAsker();
+      try {
+        const ans = await asker.ask(
+          "  インストール方法を選択してください [1] Homebrew / [2] 公式ネイティブ（Enter で 2）: "
+        );
+        useBrew = String(ans || "").trim() === "1";
+      } finally {
+        asker.close();
+      }
+    } else if (brewAvail) {
+      process.stdout.write("  （非対話のため公式ネイティブインストーラーを使用します）\n");
+    } else {
+      process.stdout.write("  （Homebrew 未導入のため公式ネイティブインストーラーを使用します）\n");
+    }
+    if (useBrew) attempts.push({ name: "Homebrew", run: installBrew });
+    attempts.push({ name: "公式ネイティブ", run: installNative });
+  } else {
+    // Windows / Linux: 公式ネイティブを第一候補。
+    attempts.push({ name: "公式ネイティブ", run: installNative });
+  }
+  // 最終フォールバック: npm（ランチャーが Node の存在を保証済み）。
+  if (commandWorks("npm")) attempts.push({ name: "npm", run: installNpm });
+
+  for (const a of attempts) {
+    process.stdout.write(`[bootstrap]   → ${a.name} でインストール中 …\n`);
+    let r = null;
+    try {
+      r = a.run();
+    } catch (e) {
+      warn(`${a.name} の起動に失敗しました。${String((e && e.message) || e)}`);
+    }
+    if (r && r.status === 0) {
+      process.stdout.write(`[bootstrap]   ✓ ${a.name} でインストールが完了しました。\n`);
+      return { ok: true, method: a.name };
+    }
+    warn(`${a.name} でのインストールに失敗しました。次の手段を試します。`);
+  }
+  return { ok: false };
+}
+
+// インストール先 bin を利用者 PATH に通す（best-effort・冪等・安全）。
+// ネイティブインストーラーは自動で PATH を通すため大半は no-op。npm 等の保険。
+// 返り値で「変更したか / 既に通っていたか / 対象ディレクトリ」を呼び出し側へ返す。
+function ensureClaudeOnPath() {
+  const dir = claudeBinDir();
+  try {
+    if (!fs.existsSync(dir)) return { changed: false, onPath: isOnPath(dir), dir };
+    if (isOnPath(dir)) return { changed: false, onPath: true, dir };
+
+    if (IS_WIN) {
+      // User スコープの PATH に冪等追加。setx は 1024 字で切り詰めるため PowerShell で安全に編集。
+      const psDir = dir.replace(/'/g, "''");
+      const ps = [
+        `$d=[Environment]::GetEnvironmentVariable('Path','User');`,
+        `$p='${psDir}';`,
+        `if (-not ($d -split ';' | Where-Object { $_ -ieq $p })) {`,
+        `  $nd = if ([string]::IsNullOrEmpty($d)) { $p } else { $d.TrimEnd(';') + ';' + $p };`,
+        `  [Environment]::SetEnvironmentVariable('Path', $nd, 'User')`,
+        `}`,
+      ].join(" ");
+      const r = spawnSync("powershell", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", ps], {
+        stdio: "ignore",
+      });
+      return { changed: !!(r && r.status === 0), onPath: false, dir };
+    }
+
+    // POSIX: ログインシェルの rc に export を冪等追記（既に .local/bin 記述があれば触らない）。
+    const rc = posixRcFile();
+    const cur = safeRead(rc);
+    if (/\.local\/bin/.test(cur)) return { changed: false, onPath: false, dir };
+    const prefix = cur === "" || cur.endsWith("\n") ? cur : cur + "\n";
+    const body = prefix + '\n# Added by Belta installer — Claude CLI\nexport PATH="$HOME/.local/bin:$PATH"\n';
+    atomicWrite(rc, body);
+    return { changed: true, onPath: false, dir };
+  } catch (e) {
+    warn(`PATH への追加に失敗しました（手動で ${dir} を PATH に追加してください）。${String((e && e.message) || e)}`);
+    return { changed: false, onPath: isOnPath(dir), dir };
+  }
+}
+
+// PATH を通す対象のシェル rc を選ぶ（macOS 既定 zsh / Linux 既定 bash。存在優先、無ければ既定を新規）。
+function posixRcFile() {
+  const home = homeDir();
+  const candidates =
+    process.platform === "darwin"
+      ? [".zshrc", ".zprofile", ".bash_profile", ".profile"]
+      : [".bashrc", ".profile"];
+  for (const c of candidates) {
+    const p = path.join(home, c);
+    if (fs.existsSync(p)) return p;
+  }
+  return path.join(home, process.platform === "darwin" ? ".zshrc" : ".bashrc");
+}
+
 // 次にユーザーがやるべき操作の案内。/workflow-setup は利用者自身に実行してもらう。
-function printNextSteps(folder, pluginInstalled) {
+// opts.claudeInstallFailed 時は claude CLI の手動導入コマンドも併記する。
+function printNextSteps(folder, pluginInstalled, opts) {
+  const o = opts || {};
   const bar = "============================================================";
   const lines = [
     "",
@@ -317,9 +492,78 @@ function printNextSteps(folder, pluginInstalled) {
       ""
     );
   }
+  if (o.claudeInstallFailed) {
+    lines.push(
+      "  ※ Claude Code CLI の自動インストールに失敗しました。お手数ですが、",
+      "     次のいずれかで手動導入してください（導入後に新しいターミナルで再実行）:",
+      ""
+    );
+    if (IS_WIN) {
+      lines.push(
+        "       PowerShell:  irm https://claude.ai/install.ps1 | iex",
+        "       または npm:  npm install -g @anthropic-ai/claude-code",
+        ""
+      );
+    } else if (process.platform === "darwin") {
+      lines.push(
+        "       公式:        curl -fsSL https://claude.ai/install.sh | bash",
+        "       Homebrew:    brew install --cask claude-code",
+        "       または npm:  npm install -g @anthropic-ai/claude-code",
+        ""
+      );
+    } else {
+      lines.push(
+        "       公式:        curl -fsSL https://claude.ai/install.sh | bash",
+        "       または npm:  npm install -g @anthropic-ai/claude-code",
+        ""
+      );
+    }
+  }
   lines.push(
     "  ※ Claude Code（Max / Team / Enterprise プラン）が未導入の場合は、",
     "     先に導入してください。",
+    bar,
+    ""
+  );
+  process.stdout.write(lines.join("\n"));
+}
+
+// claude CLI を自動インストールした直後の案内。
+// 同一プロセスでは追加された PATH が反映されないため、ターミナル再起動を促す（再起動は案内のみ）。
+function printClaudeInstalledNextSteps(folder, method, pathInfo) {
+  const bar = "============================================================";
+  const lines = [
+    "",
+    bar,
+    "  ✅ Claude Code CLI をインストールしました",
+    bar,
+    "",
+    `  インストール方法: ${method}`,
+  ];
+  if (pathInfo && pathInfo.changed) {
+    lines.push(`  PATH に追加しました: ${pathInfo.dir}`);
+  } else if (pathInfo && pathInfo.onPath) {
+    lines.push(`  PATH 設定済み: ${pathInfo.dir}`);
+  }
+  lines.push(
+    "",
+    "  ⚠ いま開いているこのウィンドウには、追加された PATH がまだ反映されません。",
+    "     お手数ですが、ターミナル（コマンドプロンプト）をいったん閉じて、",
+    "     新しく開き直してください（＝再起動）。",
+    "",
+    "  再起動したら、次のいずれかを実行してください。",
+    "",
+    "  ▸ かんたん（推奨）: このインストーラーをもう一度ダブルクリック／再実行する",
+    "     → 今度は claude が見つかり、プラグインの取り込みまで自動で進みます。",
+    "",
+    "  ▸ または手動で:",
+    "",
+    `       cd "${folder}"`,
+    "       claude",
+    "       （起動した Claude で） /workflow-setup",
+    "",
+    "  ※ うまく見つからないときは、新しいターミナルで `claude --version` を実行し、",
+    "     バージョンが表示されるか確認してください。",
     bar,
     ""
   );
@@ -351,12 +595,56 @@ function printNextSteps(folder, pluginInstalled) {
     warn(`下ごしらえの一部に失敗しました（継続します）。${String((e && e.message) || e)}`);
   }
 
-  // (2) プラグイン導入：claude CLI があれば実インストール、無ければ宣言的フォールバック
+  // (2) プラグイン導入：claude CLI があれば実インストール、無ければ自動導入 → 再起動案内
   const claudeBin = noClaude ? null : findClaude();
 
+  // (2-a) claude CLI が不在 → 公式インストーラーで自動導入を試みる（--no-claude / --dry-run は除く）
+  if (!claudeBin && !noClaude) {
+    if (dryRun) {
+      process.stdout.write(
+        "[bootstrap] (2) （--dry-run）claude CLI 不在を検知。自動インストールを試行予定" +
+          "（公式ネイティブ → npm、macOS は Homebrew 選択可）。\n"
+      );
+      try {
+        writeSettings(folder);
+      } catch {
+        /* best-effort */
+      }
+      printNextSteps(folder, false);
+      process.exit(0);
+    }
+
+    process.stdout.write("[bootstrap] (2) claude CLI を自動インストール …\n");
+    const result = await installClaude();
+
+    if (result && result.ok) {
+      // インストール先 bin を PATH に通す（best-effort・冪等）。
+      const pathInfo = ensureClaudeOnPath();
+      // 同一プロセスでは PATH 未反映のため、プラグイン導入はせず宣言的に settings を書いて再起動案内。
+      try {
+        writeSettings(folder);
+      } catch (e) {
+        warn(`settings.local.json の生成に失敗しました（継続）。${String((e && e.message) || e)}`);
+      }
+      printClaudeInstalledNextSteps(folder, result.method, pathInfo);
+      process.exit(0);
+    }
+
+    // 自動インストール失敗 → 宣言的フォールバック ＋ 手動導入案内。
+    warn("claude CLI の自動インストールに失敗しました。設定を宣言的に書いて手動導入をご案内します。");
+    try {
+      writeSettings(folder);
+    } catch {
+      /* best-effort */
+    }
+    printNextSteps(folder, false, { claudeInstallFailed: true });
+    process.exit(0);
+  }
+
+  // (2-b) --no-claude 明示時：claude を使わず宣言的に設定を書くだけ
   if (!claudeBin) {
     process.stdout.write(
-      "[bootstrap] (2) プラグイン有効化設定を記述（claude CLI 不在 / --no-claude）…\n"
+      "[bootstrap] (2) プラグイン有効化設定を記述（--no-claude）…\n"
     );
     let settingsPath;
     try {

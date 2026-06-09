@@ -5,7 +5,7 @@
 
 | ファイル | 役割 |
 | --- | --- |
-| `bootstrap.js` | 実体。メール入力 → `belta.co.jp` 検証 → `~/<@より前>-agent` 作成 → `~/.belta` 最小初期化 → **`claude` CLI があればプラグインをそのフォルダ限定で実インストール（`claude plugin install … --scope local`）**。最後に「作成フォルダで Claude を起動し `/workflow-setup` を実行してください」という案内を表示して終了（セットアップ自体は利用者が実行）。`claude` 不在時は `settings.local.json` を宣言的に書いてフォールバック。Node.js 単一実装で Mac / Windows 両対応。 |
+| `bootstrap.js` | 実体。メール入力 → `belta.co.jp` 検証 → `~/<@より前>-agent` 作成 → `~/.belta` 最小初期化 → **`claude` CLI があればプラグインをそのフォルダ限定で実インストール（`claude plugin install … --scope local`）**。最後に「作成フォルダで Claude を起動し `/workflow-setup` を実行してください」という案内を表示して終了（セットアップ自体は利用者が実行）。**`claude` 不在時は公式インストーラーで自動導入**（公式ネイティブ → npm の順。macOS は Homebrew / ネイティブを選択可）し、`~/.local/bin` を PATH に通したうえで「ターミナルを再起動してから再実行/フォルダを開いてください」と案内する。自動導入も失敗した場合のみ `settings.local.json` を宣言的に書き、手動導入コマンドを案内する。Node.js 単一実装で Mac / Windows 両対応。 |
 | `install.command` | macOS 用ランチャー（Finder からダブルクリック）。Node を探して `bootstrap.js` を実行するだけの薄いラッパー。 |
 | `install.bat` | Windows 用ランチャー（エクスプローラーからダブルクリック）。同上。 |
 
@@ -18,7 +18,7 @@
 4. `claude` コマンドが入っていれば、**インストーラーがプラグインを専用フォルダ限定で取り込む**。完了後、画面の案内にしたがって:
    1. `cd "~/<@より前>-agent"` で専用フォルダへ移動し `claude` を起動
    2. 起動した Claude で `/workflow-setup` を実行（プロフィール登録と 4 アプリの「許可」へ進む）
-   - `claude` が見つからない場合は専用フォルダの準備までで止まり、同じ案内を表示する（フォルダを開けばプラグインは自動で取り込まれる）。
+   - `claude` が見つからない場合は、**公式インストーラーで Claude Code CLI を自動導入**し（macOS は Homebrew / 公式ネイティブを選択可、それ以外は公式ネイティブ → npm）、`~/.local/bin` を PATH に通す。導入後は PATH を反映するため **ターミナルを一度閉じて開き直し（＝再起動）**、インストーラーを再実行するか専用フォルダを開く。自動導入に失敗したときだけ、設定ファイルを宣言的に書いて手動導入コマンドを案内する。
 
 オプション: `--no-claude`（claude を使わず設定ファイルだけ書く）/ `--dry-run`（実行予定だけ表示）。
 
