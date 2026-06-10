@@ -101,6 +101,7 @@ const CONFIG_ORDER = [
   "feature_avatar_publish",
   "insights_default_days",
   "notes_retention_days",
+  "token_5h_warn",
 ];
 
 function readConfig() {
@@ -163,6 +164,10 @@ function doInit() {
     // notes 日次ログの保持日数（notes-record.js の retention が参照）。
     // 既定 14。agent-learning の「直近 5 営業日」窓を週末込みで割らないため 7 より長め。
     notes_retention_days: existing.notes_retention_days || "14",
+    // 直近 5 時間のトークン消費（利用制限カウント相当の推計）の警告しきい値。
+    // 超えると session-start.js / repeat-detect.js が警告を注入する。0 で警告オフ。
+    // 既定 70000 は Max 5x プランの 5 時間枠の目安（~88k）の約 8 割。
+    token_5h_warn: existing.token_5h_warn || "70000",
   };
   // 余分な既存キーも保持
   for (const k of Object.keys(existing)) if (!(k in merged)) merged[k] = existing[k];

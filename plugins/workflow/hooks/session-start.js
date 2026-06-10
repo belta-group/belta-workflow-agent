@@ -167,7 +167,7 @@ try {
           "直近の記録（~/.belta/notes/）で、同じ趣旨の依頼が別々のセッションで繰り返されています:",
           ...lines,
           "",
-          "本セッションでこれらの作業に着手する際は、agent-learning の消去法ゲートに従い、その領域を専用エージェント化するか（テキストで足りれば rule-learning、既製スキルで足りれば skill-suggestion、専門手順なら skill-authoring）を AskUserQuestion で提案するか検討してください。1 つの依頼の言い直し・継続は反復に数えません。既に AGENTS.md / RULES.md / SKILLS.md / AUTHORED.md で採用済み・却下・冷却中の領域は対象外です。",
+          "本セッションでこれらの作業に着手する際は、agent-learning の消去法ゲートに従い、その領域を専用エージェント化するか（テキストで足りれば rule-learning、既製スキルで足りれば skill-suggestion、専門手順なら skill-authoring）を AskUserQuestion で提案するか検討してください。あわせて、反復している領域が既存の部署ロール（~/.belta/roles/）でカバーされていなければ新しいロールの追加を、既存ロールの領域なら典型業務・成果物の型のブラッシュアップを提案するか検討してください（workflow スキルの references/roles.md「ロールの提案と成長」）。1 つの依頼の言い直し・継続は反復に数えません。既に AGENTS.md / RULES.md / SKILLS.md / AUTHORED.md / ROLES.md で採用済み・却下・冷却中の領域は対象外です。",
         ].join("\n")
       );
     }
@@ -281,6 +281,74 @@ try {
     }
   } catch {
     /* マニフェスト読めない・書けない等は黙って素通り（fail-open） */
+  }
+
+  // (F) 5 時間ローリング消費の警告:
+  //     token-usage.js（Stop）が残した記録の slots を横断し、直近 5 時間の
+  //     「利用制限カウント相当（limit_equiv）」消費が config.yaml の token_5h_warn
+  //     （既定 70000、0 以下で無効）を超えていれば、利用者へ systemMessage で直接知らせ、
+  //     LLM へも省トークンの作法を additionalContext で渡す。Claude の利用制限
+  //     （Pro/Max の 5 時間ローリング窓）に「一瞬で当たる」事故の予防が目的。
+  //     ※ ここで数えるのは本エージェントのセッション分だけで、公式の制限カウント
+  //       そのものではない（他プロジェクトや claude.ai 利用分は見えない）。
+  try {
+    const { sumRecentLimitEquiv, readTokenWarnThreshold, FIVE_HOURS_MS } = require(path.join(__dirname, "tokens-util.js"));
+    const beltaDir = path.join(home, ".belta");
+    const threshold = readTokenWarnThreshold(beltaDir);
+    if (threshold > 0) {
+      const recent = sumRecentLimitEquiv(path.join(beltaDir, "audit", "tokens"), FIVE_HOURS_MS);
+      if (recent >= threshold) {
+        const fmt = (n) => Number(n).toLocaleString("en-US");
+        systemMessages.push(
+          `⚠️ 直近5時間のトークン消費が多めです（このエージェント分の推計 ${fmt(recent)}、目安しきい値 ${fmt(threshold)}）。Claude の利用制限（5時間ローリング窓）に近づいている可能性があります。/usage で内訳を確認できます（しきい値は ~/.belta/config.yaml の token_5h_warn で変更、0 で警告オフ）。`
+        );
+        contexts.push(
+          [
+            "【Belta トークン消費警告（直近5時間）】",
+            "",
+            `token-usage 記録上、直近 5 時間の利用制限カウント相当の消費が推計 ${fmt(recent)} トークンに達しています（警告しきい値 ${fmt(threshold)}）。利用者には systemMessage で表示済みです。`,
+            "",
+            "本セッションでは省トークンの作法を意識してください: (1) 大きなファイルの全文 Read を避け必要範囲だけ読む、(2) 同じ調査の繰り返しを避け既知の結論を再利用する、(3) 探索的な大規模走査はまず対象を絞る。利用者がトークン消費の内訳を知りたがったら /usage（token-usage スキル）を案内してください。",
+          ].join("\n")
+        );
+      }
+    }
+  } catch {
+    /* tokens-util 不在・記録なし等は黙って素通り（fail-open） */
+  }
+
+  // (G) ゴール再開検知:
+  //     goal スキルが ~/.belta/goals/ に永続化した進行中ゴール（status: active）が
+  //     あれば、進捗・次のステップ・停滞（stale）を注入し、再開を一言提案させる。
+  //     検知は決定的（goal-util.js の走査。goal-scan.js と同じパーサで判定基準を揃える）。
+  //     再開するかの判断・実行は LLM と利用者に委ねる。進行中ゴールが無ければ無出力。
+  try {
+    const { listGoals } = require(path.join(__dirname, "goal-util.js"));
+    const active = listGoals(path.join(home, ".belta", "goals"))
+      .filter((g) => g.status === "active")
+      .slice(0, 3);
+    if (active.length) {
+      const lines = active.map((g) => {
+        const next = g.next_step ? `、次: ${String(g.next_step).slice(0, 60)}` : "、未着手ステップなし";
+        const flags = [];
+        if (g.stale) flags.push("7日以上停滞");
+        if (g.blocked_steps.length) flags.push(`ブロック中 ${g.blocked_steps.length} 件`);
+        return `・「${String(g.goal || g.slug).slice(0, 60)}」（slug: ${g.slug}、${g.counts.done}/${g.counts.total} 完了${next}）${flags.length ? `【${flags.join("・")}】` : ""}`;
+      });
+      contexts.push(
+        [
+          "【Belta ゴール再開検知（進行中のゴールがあります）】",
+          "",
+          `~/.belta/goals/ に進行中（status: active）のゴールが ${active.length} 件あります:`,
+          ...lines,
+          "",
+          "ユーザーへの応答の冒頭で、進行中のゴールがあることを一言知らせ、再開するかを 1 回だけ提案してください（AskUserQuestion を使ってよい）。ただしユーザーが別の用件を明確に依頼している場合はそちらを優先し、提案をしつこく繰り返さないこと。7日以上停滞しているゴールは「続けるか、中断（archived）にするか」の確認も添えてください。",
+          "再開する場合は goal スキル（skills/goal/SKILL.md）の手順に従い、必ず先に goal-scan.js --slug <slug> で現状を取得してから次のステップへ進むこと（記憶でステップを作り直さない）。",
+        ].join("\n")
+      );
+    }
+  } catch {
+    /* goals 無し・goal-util 不在等は黙って素通り（fail-open） */
   }
 } catch {
   // fail-open: 何が起きてもセッションを妨げない。

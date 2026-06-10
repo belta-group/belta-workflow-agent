@@ -30,6 +30,16 @@ const fs = require("fs");
 const path = require("path");
 const os = require("os");
 
+// 相槌・短文・スラッシュコマンド・選択肢への番号回答（「1」「1を実行して」等）を
+// 「依頼」として記録しないためのフィルタ。反復検知（repeat-detect.js / session-start.js）と
+// 同じ判定を共有する。読み込めない環境では従来どおり全件記録に倒す（fail-open）。
+let normalizeRequest = null;
+try {
+  ({ normalizeRequest } = require(path.join(__dirname, "repeat-util.js")));
+} catch {
+  /* フィルタ無しで続行 */
+}
+
 const DEFAULT_RETENTION_DAYS = 14; // agent-learning の「直近 5 営業日」窓を週末込みで確実に覆う既定
 const MIN_RETENTION_DAYS = 7; // 検知窓を割らないための下限
 const MAX_REQUESTS_PER_LINE = 8; // 1 行に残す依頼の最大数（古いものから切り捨て）
@@ -141,6 +151,8 @@ function extractUserRequests(transcript) {
 
     const cleaned = cleanRequestText(text);
     if (!cleaned) continue;
+    // 相槌・短文・選択肢への番号回答は「依頼」でないため記録しない。
+    if (normalizeRequest && !normalizeRequest(text)) continue;
     // 直前と同一なら重ねない。
     if (requests.length && requests[requests.length - 1] === cleaned) continue;
     requests.push(cleaned);

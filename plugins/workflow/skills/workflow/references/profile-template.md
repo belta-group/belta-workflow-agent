@@ -34,7 +34,7 @@ created_at: <YYYY-MM-DD>
 | --- | --- | --- | --- |
 | `owner_name` | ○ | 氏名 | 応答の宛名・記録の署名 |
 | `owner_email` | ○ | メール（`userEmail` を初期値に確認）。複数ユーザー識別の主キー | `config.yaml` の `owner_email` と一致させる。記録の所有者 |
-| `department` | ○ | 所属部署 | [roles.md](roles.md) の該当ロールを引き当て、`~/.belta/role.md` に展開する |
+| `department` | ○ | 所属部署 | [roles.md](roles.md) の該当ロールを引き当て、プライマリロール `~/.belta/roles/<slug>.md` に展開し索引 `roles/ROLES.md` に記録する |
 | `confidentiality` | ○ | 公開 / 社外秘 / 極秘 | PII 検知フックの警告文脈・外部送信前確認の厳格度（[security-policies.md](security-policies.md) §2） |
 | `created_at` | ○ | 作成日（YYYY-MM-DD） | プロフィール鮮度の参照 |
 | 主要業務 | ○ | 3 つまで | 発話 → ツール分岐の優先度、自動エージェント化（agent-learning）の領域判定 |
