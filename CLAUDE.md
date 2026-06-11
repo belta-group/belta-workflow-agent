@@ -22,6 +22,12 @@ Belta 社内向けワークフロー自動化エージェント（Claude Code Pl
 
 @.claude/rules/skill-writing.md
 
+### デザイン（トンマナ）の方針
+
+見た目を持つ成果物（VitePress ドキュメントサイト・生成 HTML ダッシュボード・今後の UI 系生成物）は、**EC-BELTA ブランドのトンマナ**（ピンク Primary `#d76492`・淡ピンクの面・ピル型/角丸・弱い影・Noto Sans JP）に揃える。一次資料（正）は EC-BELTA リポジトリの SCSS（`~/belta/ec-belta/app/assets/scss/**`）で、値が食い違ったら SCSS 側を起点に事後同期する。チャートの系列色はカテゴリーカラーを順に使い、独自パレットを発明しない。外部 Web フォントは読み込まない（自己完結方針）。VitePress のスコープ付き CSS への上書きや派生色の作り方など、実際に踏んだ罠も下記に蓄積している。
+
+@.claude/rules/design.md
+
 ## リポジトリ構成
 
 このリポジトリは 2 つの独立した部分から成る。

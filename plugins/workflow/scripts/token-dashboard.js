@@ -351,7 +351,7 @@ function buildHtml(stats) {
 <meta name="robots" content="noindex,nofollow"/>
 <title>トークン消費ダッシュボード</title>
 <style>
-  /* EC-BELTA デザイントークン（app/assets/scss/base/_variables.scss が正）
+  /* EC-BELTA デザイントークン（app/assets/scss/base/_variables.scss が正。規約: .claude/rules/design.md）
      Primary #d76492 / Tertiary #f6e4eb / 背景 #fff6f7・#fffaf0 / テキスト #3d3d3d / サブ #888 */
   :root { --bg:#fff6f7; --panel:#fff; --panel2:#fff6f7; --txt:#3d3d3d; --sub:#888; --accent:#d76492;
     --border:#f3e4ea; --shadow:0 1px 4px rgba(0,0,0,.06); }
