@@ -228,7 +228,8 @@ function computeTokenStats(opts = {}) {
 }
 
 // ---- HTML 部品 ----------------------------------------------------------------
-const BAR_COLORS = ["#7cc4ff", "#b78cff", "#5ad1a5", "#ffd84a", "#ff8fb1", "#f3a36b", "#9aa3c7"];
+// EC-BELTA カテゴリーカラー（_variables.scss）をチャートパレットとして採用
+const BAR_COLORS = ["#d76492", "#617cc3", "#84bd4a", "#efbe3a", "#f5a279", "#ef988e", "#4f5978"];
 
 // 横棒ランキング（モデル別・ツール別 共用）
 function renderHBars(rows, opts = {}) {
@@ -244,7 +245,7 @@ function renderHBars(rows, opts = {}) {
         const pct = Math.round((r.limit_equiv / total) * 100);
         const w = Math.max(1, Math.round((r.limit_equiv / max) * 100));
         const color = opts.highlightOpus && /opus/i.test(r.label || r.model || "")
-          ? "#ff8fb1"
+          ? "#ce004e" /* EC-BELTA 更年期ケアカテゴリの濃ピンク＝「重い」強調 */
           : BAR_COLORS[i % BAR_COLORS.length];
         const sub = opts.subText ? opts.subText(r) : "";
         return `<div class="hbar-row">
@@ -278,18 +279,18 @@ function renderTrend(trend) {
     const h = Math.round((t.limit_equiv / max) * innerH);
     const x = padL + i * bw + bw * 0.15;
     const y = padT + innerH - h;
-    bars += `<rect x="${x.toFixed(1)}" y="${y}" width="${(bw * 0.7).toFixed(1)}" height="${h}" rx="3" fill="#7cc4ff"><title>${esc(t.day)}: ${fmt(t.limit_equiv)}</title></rect>`;
+    bars += `<rect x="${x.toFixed(1)}" y="${y}" width="${(bw * 0.7).toFixed(1)}" height="${h}" rx="3" fill="#d76492"><title>${esc(t.day)}: ${fmt(t.limit_equiv)}</title></rect>`;
     // 日ラベルは 2 日おき（MM-DD）
     if (i % 2 === 0) {
-      bars += `<text x="${(x + bw * 0.35).toFixed(1)}" y="${H - 8}" fill="#9aa3c7" font-size="10" text-anchor="middle">${esc(t.day.slice(5))}</text>`;
+      bars += `<text x="${(x + bw * 0.35).toFixed(1)}" y="${H - 8}" fill="#888" font-size="10" text-anchor="middle">${esc(t.day.slice(5))}</text>`;
     }
   });
   // Y 軸目盛（0 / 半分 / 最大）
   let axis = "";
   for (const frac of [0, 0.5, 1]) {
     const y = padT + innerH - innerH * frac;
-    axis += `<line x1="${padL}" y1="${y}" x2="${W - 10}" y2="${y}" stroke="#2c3357" stroke-width="1"/>`;
-    axis += `<text x="${padL - 6}" y="${y + 4}" fill="#9aa3c7" font-size="10" text-anchor="end">${short(max * frac)}</text>`;
+    axis += `<line x1="${padL}" y1="${y}" x2="${W - 10}" y2="${y}" stroke="#f3e4ea" stroke-width="1"/>`;
+    axis += `<text x="${padL - 6}" y="${y + 4}" fill="#888" font-size="10" text-anchor="end">${short(max * frac)}</text>`;
   }
   return `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="日別トークン消費">${axis}${bars}</svg>`;
 }
@@ -302,7 +303,8 @@ function renderGauge(rolling) {
     return `<div class="empty">警告しきい値が無効化されています（config.yaml の token_5h_warn が 0）。直近5時間の消費: ${fmt(used)}</div>`;
   }
   const pct = Math.min(100, Math.round((used / threshold) * 100));
-  const color = pct >= 100 ? "#ff6b8a" : pct >= 70 ? "#ffd84a" : "#5ad1a5";
+  // 超過=EC-BELTA Caution / 接近=レビュー星ゴールド / 余裕=妊娠中グリーン
+  const color = pct >= 100 ? "#e40101" : pct >= 70 ? "#e9b83e" : "#84bd4a";
   const note =
     pct >= 100
       ? "しきい値を超えています。少し休ませるか、重い処理を後回しにすると安全です。"
@@ -349,15 +351,18 @@ function buildHtml(stats) {
 <meta name="robots" content="noindex,nofollow"/>
 <title>トークン消費ダッシュボード</title>
 <style>
-  :root { --bg:#10142b; --panel:#1a2042; --panel2:#222a52; --txt:#e8ebff; --sub:#9aa3c7; --accent:#7cc4ff; }
+  /* EC-BELTA デザイントークン（app/assets/scss/base/_variables.scss が正）
+     Primary #d76492 / Tertiary #f6e4eb / 背景 #fff6f7・#fffaf0 / テキスト #3d3d3d / サブ #888 */
+  :root { --bg:#fff6f7; --panel:#fff; --panel2:#fff6f7; --txt:#3d3d3d; --sub:#888; --accent:#d76492;
+    --border:#f3e4ea; --shadow:0 1px 4px rgba(0,0,0,.06); }
   * { box-sizing:border-box; }
-  body { margin:0; background:linear-gradient(160deg,#0c1024,#161b3d); color:var(--txt);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif; padding:24px; }
+  body { margin:0; background:linear-gradient(160deg,#fff6f7,#fffaf0); color:var(--txt);
+    font-family:"Noto Sans JP","Yu Gothic","游ゴシック",yugothic,"游ゴシック体","ヒラギノ角ゴ Pro W3","メイリオ",sans-serif; padding:24px; }
   .wrap { max-width:1000px; margin:0 auto; }
   h1 { font-size:20px; margin:0 0 6px; }
   .lede { color:var(--sub); font-size:13px; margin:0 0 16px; }
   .grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:16px; align-items:stretch; }
-  .panel { background:var(--panel); border:1px solid #2c3357; border-radius:16px; padding:20px; }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:20px; box-shadow:var(--shadow); }
   .panel h2 { font-size:14px; color:var(--sub); margin:0 0 14px; letter-spacing:.04em; }
   .span2 { grid-column:1 / -1; }
   .empty { color:var(--sub); font-size:13px; line-height:1.6; }
@@ -368,22 +373,25 @@ function buildHtml(stats) {
   .stat .v { font-size:20px; font-weight:700; }
   .stat .s { font-size:11px; color:var(--sub); }
   /* 5h ゲージ */
-  .gauge-track { height:18px; background:#0d1130; border:1px solid #2c3357; border-radius:10px; overflow:hidden; }
+  .gauge-track { height:18px; background:#f6e4eb; border:1px solid #f0d6e1; border-radius:10px; overflow:hidden; }
   .gauge-fill { height:100%; }
   .gauge-meta { font-size:13px; color:var(--sub); margin-top:8px; }
   .gauge-meta b { color:var(--txt); }
   /* 横棒 */
   .hbars { display:flex; flex-direction:column; gap:8px; }
-  .hbar-row { display:grid; grid-template-columns:minmax(0,180px) 1fr minmax(0,130px); gap:10px; align-items:center; }
+  /* バー列は minmax(48px,1fr) で最低幅を保証する。固定 1fr だと、パネルが狭い中間幅
+     （2 カラム表示のままウィンドウが狭い場合）でラベル・数値列に食われて 0px に潰れ、
+     バーが丸ごと消える。ラベル列も minmax(0,180px) で譲れるようにしておく。 */
+  .hbar-row { display:grid; grid-template-columns:minmax(0,180px) minmax(48px,1fr) minmax(0,130px); gap:10px; align-items:center; }
   .hbar-label { font-size:13px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .hbar-track { height:14px; background:#0d1130; border-radius:7px; overflow:hidden; }
+  .hbar-track { height:14px; background:#f6e4eb; border-radius:7px; overflow:hidden; }
   .hbar-fill { height:100%; border-radius:7px; }
   .hbar-val { font-size:13px; font-weight:700; white-space:nowrap; }
   .hbar-pct { color:var(--sub); font-weight:400; font-size:11px; }
   .hbar-sub { color:var(--sub); font-weight:400; font-size:11px; }
   /* セッション表 */
   .sess { width:100%; border-collapse:collapse; font-size:13px; }
-  .sess th, .sess td { padding:8px 6px; border-bottom:1px solid #2c3357; text-align:left; }
+  .sess th, .sess td { padding:8px 6px; border-bottom:1px solid var(--border); text-align:left; }
   .sess th { color:var(--sub); font-weight:400; font-size:11px; }
   .sess .num { text-align:right; }
   .mono { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; }
@@ -394,7 +402,7 @@ function buildHtml(stats) {
     .grid{grid-template-columns:1fr;}
     .panel{padding:16px;}
     .stat-list{grid-template-columns:repeat(2,1fr);}
-    .hbar-row{grid-template-columns:minmax(0,110px) 1fr minmax(0,110px);}
+    .hbar-row{grid-template-columns:minmax(0,110px) minmax(40px,1fr) minmax(0,110px);}
   }
 </style>
 </head>
@@ -425,7 +433,7 @@ function buildHtml(stats) {
 
     <div class="panel"><h2>モデル別の内訳（重い順）</h2>
       ${renderHBars(stats.by_model.map((m) => ({ label: m.model, limit_equiv: m.limit_equiv })), { highlightOpus: true })}
-      <div class="note" style="margin-top:12px;">Opus 系（ピンク）は Sonnet 系より制限消費が重いモデルです。比率が高いほど制限に早く当たります。</div>
+      <div class="note" style="margin-top:12px;">Opus 系（濃いピンク）は Sonnet 系より制限消費が重いモデルです。比率が高いほど制限に早く当たります。</div>
     </div>
 
     <div class="panel"><h2>処理（ツール・スキル）別の内訳 上位${TOP_TOOLS}</h2>
@@ -445,7 +453,7 @@ function buildHtml(stats) {
 
 function placeholderHtml() {
   return `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"/><title>トークン消費ダッシュボード</title></head>
-<body style="background:#10142b;color:#e8ebff;font-family:sans-serif;padding:40px;">
+<body style="background:#fff6f7;color:#3d3d3d;font-family:'Noto Sans JP','Yu Gothic',Meiryo,sans-serif;padding:40px;">
 <h1>⚡ まだ記録がありません</h1>
 <p>セッションを使うとトークン消費の記録が貯まります。少し使ってから <code>/usage</code> を実行してください。</p>
 </body></html>`;

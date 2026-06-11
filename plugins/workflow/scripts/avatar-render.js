@@ -104,24 +104,24 @@ function renderRadar(stats6) {
   const angle = (i) => -Math.PI / 2 + (i * 2 * Math.PI) / n;
   const pt = (i, r) => [cx + r * Math.cos(angle(i)), cy + r * Math.sin(angle(i))];
 
-  // グリッド（同心六角形）
+  // グリッド（同心六角形）— EC-BELTA Tertiary 系の淡ピンク線
   let grid = "";
   for (const frac of [0.25, 0.5, 0.75, 1]) {
     const poly = AXES.map((_, i) => pt(i, R * frac).map((v) => v.toFixed(1)).join(",")).join(" ");
-    grid += `<polygon points="${poly}" fill="none" stroke="#2c3357" stroke-width="1"/>`;
+    grid += `<polygon points="${poly}" fill="none" stroke="#f0d6e1" stroke-width="1"/>`;
   }
   // 軸線 + ラベル
   let axes = "";
   AXES.forEach((ax, i) => {
     const [ex, ey] = pt(i, R);
-    axes += `<line x1="${cx}" y1="${cy}" x2="${ex.toFixed(1)}" y2="${ey.toFixed(1)}" stroke="#2c3357" stroke-width="1"/>`;
+    axes += `<line x1="${cx}" y1="${cy}" x2="${ex.toFixed(1)}" y2="${ey.toFixed(1)}" stroke="#f0d6e1" stroke-width="1"/>`;
     const [lx, ly] = pt(i, R + 22);
     const val = stats6[ax.key] || 0;
-    axes += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" fill="#9aa3c7" font-size="13" text-anchor="middle" dominant-baseline="middle">${esc(ax.label)} ${val}</text>`;
+    axes += `<text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" fill="#888" font-size="13" text-anchor="middle" dominant-baseline="middle">${esc(ax.label)} ${val}</text>`;
   });
-  // データ多角形
+  // データ多角形 — EC-BELTA Primary #d76492
   const dataPoly = AXES.map((ax, i) => pt(i, (R * (stats6[ax.key] || 0)) / 100).map((v) => v.toFixed(1)).join(",")).join(" ");
-  const data = `<polygon points="${dataPoly}" fill="rgba(124,196,255,0.30)" stroke="#7cc4ff" stroke-width="2"/>`;
+  const data = `<polygon points="${dataPoly}" fill="rgba(215,100,146,0.25)" stroke="#d76492" stroke-width="2"/>`;
 
   return `<svg viewBox="0 0 320 320" width="320" height="320" role="img" aria-label="ステータスレーダー">${grid}${axes}${data}</svg>`;
 }
@@ -143,8 +143,9 @@ function renderAvatarSvg(stageIndex, level) {
 }
 
 function renderPortrait(stats, name, imageDataUri) {
-  const hue = (stats.level * 12) % 360;
-  const ring = `border:6px solid hsl(${hue},70%,60%); box-shadow:0 0 24px hsl(${hue},70%,55%);`;
+  // リングは EC-BELTA Primary 系で固定し、レベルで光量だけ強くする（ブランド色を保つ）
+  const glow = Math.min(0.45, 0.2 + stats.level * 0.01);
+  const ring = `border:6px solid #eab7ca; box-shadow:0 0 24px rgba(215,100,146,${glow.toFixed(2)});`;
   let inner;
   if (imageDataUri) {
     inner = `<img src="${imageDataUri}" alt="${esc(name)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"/>`;
@@ -180,9 +181,10 @@ function renderHeatmap(activeDays) {
 
 // ---- バッジ ------------------------------------------------------------------
 function renderBadges(badges) {
-  const tierColor = { bronze: "#c8895a", silver: "#bfc6dd", gold: "#ffd84a" };
+  // 白背景で読めるよう各ティアを暗めに（gold は EC-BELTA $color-review-star #e9b83e の暗色派生）
+  const tierColor = { bronze: "#a86b3f", silver: "#7e8a99", gold: "#bb8f1d" };
   const earned = (badges.earned || [])
-    .map((b) => `<div class="badge earned" title="${esc(b.req)}"><span class="bemoji">${esc(b.emoji)}</span><span class="bname" style="color:${tierColor[b.tier] || "#fff"}">${esc(b.name)}</span></div>`)
+    .map((b) => `<div class="badge earned" title="${esc(b.req)}"><span class="bemoji">${esc(b.emoji)}</span><span class="bname" style="color:${tierColor[b.tier] || "#3d3d3d"}">${esc(b.name)}</span></div>`)
     .join("");
   const locked = (badges.locked || [])
     .map((b) => `<div class="badge locked" title="条件: ${esc(b.req)}"><span class="bemoji">🔒</span><span class="bname">${esc(b.name)}</span></div>`)
@@ -220,7 +222,8 @@ function renderTopList(items, unit) {
 }
 
 // ---- 使用状況：エージェント使用比率（インライン SVG ドーナツ）---------------
-const DONUT_COLORS = ["#7cc4ff", "#b78cff", "#5ad1a5", "#ffd84a", "#ff8fb1", "#9aa3c7"];
+// EC-BELTA カテゴリーカラー（_variables.scss）をチャートパレットとして採用
+const DONUT_COLORS = ["#d76492", "#617cc3", "#84bd4a", "#efbe3a", "#f5a279", "#ef988e"];
 
 function renderDonut(usage) {
   const items = (usage && usage.items) || [];
@@ -247,8 +250,8 @@ function renderDonut(usage) {
   });
   const svg = `<svg viewBox="0 0 180 180" width="180" height="180" role="img" aria-label="エージェント使用比率">
     ${segs}
-    <text x="${cx}" y="${cy - 4}" text-anchor="middle" fill="#e8ebff" font-size="26" font-weight="700">${total}</text>
-    <text x="${cx}" y="${cy + 16}" text-anchor="middle" fill="#9aa3c7" font-size="11">起動（累計）</text>
+    <text x="${cx}" y="${cy - 4}" text-anchor="middle" fill="#3d3d3d" font-size="26" font-weight="700">${total}</text>
+    <text x="${cx}" y="${cy + 16}" text-anchor="middle" fill="#888" font-size="11">起動（累計）</text>
   </svg>`;
   const legend = items
     .map(
@@ -283,29 +286,32 @@ function buildHtml(stats, meta, activeDays) {
 <meta name="robots" content="noindex,nofollow"/>
 <title>${esc(meta.name)} — 育成アバター</title>
 <style>
-  :root { --bg:#10142b; --panel:#1a2042; --panel2:#222a52; --txt:#e8ebff; --sub:#9aa3c7; --accent:#7cc4ff; }
+  /* EC-BELTA デザイントークン（app/assets/scss/base/_variables.scss が正）
+     Primary #d76492 / Tertiary #f6e4eb / 背景 #fff6f7・#fffaf0 / テキスト #3d3d3d / サブ #888 */
+  :root { --bg:#fff6f7; --panel:#fff; --panel2:#fff6f7; --txt:#3d3d3d; --sub:#888; --accent:#d76492;
+    --border:#f3e4ea; --shadow:0 1px 4px rgba(0,0,0,.06); }
   * { box-sizing:border-box; }
-  body { margin:0; background:linear-gradient(160deg,#0c1024,#161b3d); color:var(--txt);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Kaku Gothic ProN",Meiryo,sans-serif; padding:24px; }
+  body { margin:0; background:linear-gradient(160deg,#fff6f7,#fffaf0); color:var(--txt);
+    font-family:"Noto Sans JP","Yu Gothic","游ゴシック",yugothic,"游ゴシック体","ヒラギノ角ゴ Pro W3","メイリオ",sans-serif; padding:24px; }
   .wrap { max-width:1000px; margin:0 auto; }
   h1 { font-size:20px; margin:0 0 16px; }
   /* minmax(0,1fr) で各トラックの min-content 下限を外し、中身（固定幅 SVG / ヒートマップ）に
      引きずられてトラック幅が不均等／オーバーフローするのを防ぐ（左右パネルを常に等幅に保つ） */
   .grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:16px; align-items:stretch; }
-  .panel { background:var(--panel); border:1px solid #2c3357; border-radius:16px; padding:20px; }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:16px; padding:20px; box-shadow:var(--shadow); }
   .panel h2 { font-size:14px; color:var(--sub); margin:0 0 14px; letter-spacing:.04em; }
   .hero { display:flex; gap:24px; align-items:center; grid-column:1 / -1; }
   .portrait-wrap { position:relative; width:180px; flex:0 0 180px; text-align:center; }
   .portrait { width:160px; height:160px; border-radius:50%; overflow:hidden; margin:0 auto;
-    display:flex; align-items:center; justify-content:center; background:#0d1130; }
+    display:flex; align-items:center; justify-content:center; background:#f6e4eb; }
   .crown { position:absolute; top:-14px; left:0; right:0; font-size:28px; }
   .stage-emoji { font-size:24px; margin-top:6px; }
   .hero-info { flex:1; }
   .name { font-size:28px; font-weight:700; }
   .lvline { font-size:15px; color:var(--sub); margin:4px 0 14px; }
   .lv { color:var(--accent); font-weight:700; font-size:18px; }
-  .xpbar { height:14px; background:#0d1130; border-radius:8px; overflow:hidden; border:1px solid #2c3357; }
-  .xpfill { height:100%; background:linear-gradient(90deg,#7cc4ff,#b78cff); width:${pct}%; }
+  .xpbar { height:14px; background:#f6e4eb; border-radius:8px; overflow:hidden; border:1px solid #f0d6e1; }
+  .xpfill { height:100%; background:linear-gradient(90deg,#d76492,#d97da2); width:${pct}%; }
   .xptext { font-size:12px; color:var(--sub); margin-top:6px; }
   .stat-list { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:14px; }
   .stat { background:var(--panel2); border-radius:10px; padding:8px 10px; }
@@ -317,23 +323,24 @@ function buildHtml(stats, meta, activeDays) {
   /* ヒートマップは 16 週 × 7 日をパネル幅いっぱいに敷き詰める（固定 12px だと余白だらけで
      ステータス側とバランスが崩れるため、セルを可変幅＝正方形にして横いっぱいに広げる） */
   .heatmap { display:grid; grid-template-columns:repeat(16, minmax(0,1fr)); grid-template-rows:repeat(7, auto); grid-auto-flow:column; gap:4px; width:100%; }
-  .cell { aspect-ratio:1; border-radius:3px; background:#222a52; }
-  .cell.on { background:#7cc4ff; }
+  .cell { aspect-ratio:1; border-radius:3px; background:#f6e4eb; }
+  .cell.on { background:#d76492; }
   .badge-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:10px; }
   .badge { background:var(--panel2); border-radius:10px; padding:10px; display:flex; align-items:center; gap:8px; }
   .badge.locked { opacity:.4; }
   .bemoji { font-size:20px; }
   .bname { font-size:12px; }
   .skill-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(100px,1fr)); gap:10px; }
-  .skill { background:var(--panel2); border-radius:10px; padding:12px; text-align:center; border-bottom:4px solid #2c3357; }
-  .skill.s1 { border-color:#5a7; } .skill.s2 { border-color:#7cc4ff; } .skill.s3 { border-color:#ffd84a; }
+  .skill { background:var(--panel2); border-radius:10px; padding:12px; text-align:center; border-bottom:4px solid #f0d6e1; }
+  /* 解放=妊娠中グリーン / 育成中=Primary / 熟練=レビュー星ゴールド（EC-BELTA カテゴリ・実色） */
+  .skill.s1 { border-color:#84bd4a; } .skill.s2 { border-color:#d76492; } .skill.s3 { border-color:#e9b83e; }
   .sname { font-weight:700; } .sstage { font-size:12px; color:var(--sub); margin:4px 0; } .shits { font-size:12px; color:var(--sub); }
   .foot { color:var(--sub); font-size:12px; margin-top:18px; text-align:center; }
   .empty { color:var(--sub); font-size:13px; line-height:1.6; }
   .sub-h { font-size:12px; color:var(--sub); margin-bottom:8px; }
   /* よく使う依頼 / コマンドのランキング */
   .rank-list { display:flex; flex-direction:column; }
-  .rank-row { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid #2c3357; }
+  .rank-row { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); }
   .rank-row:last-child { border-bottom:none; }
   .rank-no { flex:0 0 22px; font-weight:700; color:var(--accent); text-align:center; }
   .rank-label { flex:1; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -350,7 +357,7 @@ function buildHtml(stats, meta, activeDays) {
   .lg-pct { color:var(--sub); font-weight:700; }
   /* チップ（採用エージェント / 自作スキル） */
   .chips { display:flex; flex-wrap:wrap; gap:8px; }
-  .chip { background:var(--panel2); border:1px solid #2c3357; border-radius:999px; padding:5px 12px; font-size:13px; }
+  .chip { background:var(--panel2); border:1px solid #f0d6e1; border-radius:999px; padding:5px 12px; font-size:13px; }
   /* タブレット: 2列は維持しつつ hero を縦並びに */
   @media (max-width:900px){ .hero{flex-direction:column;text-align:center;} .hero-info{width:100%;} }
   /* スマホ: 1列・余白圧縮・stat 2列 */
@@ -419,7 +426,7 @@ function buildHtml(stats, meta, activeDays) {
 
 function placeholderHtml(name) {
   return `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8"/><title>${esc(name)} — 育成アバター</title></head>
-<body style="background:#10142b;color:#e8ebff;font-family:sans-serif;padding:40px;">
+<body style="background:#fff6f7;color:#3d3d3d;font-family:'Noto Sans JP','Yu Gothic',Meiryo,sans-serif;padding:40px;">
 <h1>🥚 ${esc(name)} はまだ眠っています</h1>
 <p>使い込むほどアバターが育ちます。もう少しデータが貯まったら <code>/avatar</code> を実行してください。</p>
 </body></html>`;

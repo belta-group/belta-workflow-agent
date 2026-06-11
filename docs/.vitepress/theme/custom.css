@@ -47,6 +47,18 @@
   --vp-c-danger-2: #cf0101;
   --vp-c-danger-3: #e40101;
   --vp-c-danger-soft: rgba(228, 1, 1, 0.1);
+
+  /* 面の色（EC-BELTA の淡ピンク系背景を採用）
+   * bg-soft: フィーチャーカード・コードグループ等の「柔らかい面」
+   *          → EC-BELTA $color-background-cta-bottom #fff6f7
+   * bg-alt : サイドバー・フッター等の「区画面」
+   *          → EC-BELTA $color-background-footer #f7e8ed を白 50% で割った派生値
+   *            （サイドバーは長文の隣に常駐するため、原色のままだと主張が強い） */
+  --vp-c-bg-soft: #fff6f7;
+  --vp-c-bg-alt: #fbf3f6;
+
+  /* 区切り線にもごく淡くピンクを乗せる（EC-BELTA Border 200 #eee のピンク寄せ派生）*/
+  --vp-c-divider: #f3e4ea;
 }
 
 /* ダークモード: 暗背景では Primary を明るめのピンクへ持ち上げて可読性を確保。
@@ -66,6 +78,12 @@
   --vp-c-danger-2: #ff4040;
   --vp-c-danger-3: #ff5b5b;
   --vp-c-danger-soft: rgba(255, 91, 91, 0.16);
+
+  /* 暗背景では淡ピンクの面は成立しないため、VitePress 既定の暗色へ戻す。
+   * （:root の上書きがソース順で .dark 既定値より後勝ちになるための明示リセット）*/
+  --vp-c-bg-soft: #202127;
+  --vp-c-bg-alt: #161618;
+  --vp-c-divider: rgba(82, 82, 89, 0.32);
 }
 
 /* ===========================================================================
@@ -82,10 +100,45 @@
   --vp-button-brand-border: transparent;
   --vp-button-brand-hover-border: transparent;
   --vp-button-brand-active-border: transparent;
+
+  /* サブボタン（alt）は EC-BELTA Tertiary #f6e4eb の淡ピンク面。
+   * 文字は Tertiary contrast（= Primary 系）で、グレーよりブランドに馴染ませる。*/
+  --vp-button-alt-bg: #f6e4eb;
+  --vp-button-alt-hover-bg: #f0d6e1;
+  --vp-button-alt-active-bg: #eccbd9;
+  --vp-button-alt-text: #c44d7d;
+  --vp-button-alt-border: transparent;
+  --vp-button-alt-hover-border: transparent;
+  --vp-button-alt-active-border: transparent;
+}
+
+/* 暗背景では淡ピンクの面が眩しいため、alt ボタンは既定の暗色面へ戻す */
+.dark {
+  --vp-button-alt-bg: #32363f;
+  --vp-button-alt-hover-bg: #414853;
+  --vp-button-alt-active-bg: #4c545f;
+  --vp-button-alt-text: rgba(255, 255, 255, 0.87);
 }
 
 .VPButton {
   transition: all 0.3s ease; /* EC-BELTA --transition-base */
+}
+
+/* EC-BELTA BButton の appearance-pill（border-radius: 5em）と
+ * 浮き感のある柔らかい影（box-shadow: 0 6px 6px -3px rgba(0,0,0,.2)）を踏襲。
+ * ピル型はボタンの丸みがそのまま「優しい印象」を作る、ブランドの要の形状。
+ * ※ VitePress のコンポーネント CSS はスコープ属性（[data-v-…]）で詳細度が
+ *   高いため、本ファイルからの上書きは !important が必要（セクション 6 と同様）。*/
+.VPButton.medium,
+.VPButton.big {
+  border-radius: 5em !important;
+}
+.VPButton.brand {
+  box-shadow: 0 6px 6px -3px rgba(0, 0, 0, 0.2) !important;
+}
+.VPButton.brand:hover {
+  box-shadow: 0 8px 10px -3px rgba(215, 100, 146, 0.35) !important;
+  transform: translateY(-1px);
 }
 
 /* ===========================================================================
@@ -194,4 +247,105 @@
 /* ナビバーのロゴを少し大きめにして視認性を確保 */
 .VPNavBarTitle .logo {
   height: 30px;
+}
+
+/* ===========================================================================
+ * 7. 柔らかい面と丸み（EC-BELTA の「優しい」印象づくり）
+ *
+ * EC-BELTA はピル型ボタン・8〜10px の角丸・淡ピンクの面・弱い影で
+ * 「柔らかく親しみやすい」印象を統一している。ドキュメント側の各部品
+ * （フィーチャーカード / コールアウト / コード / テーブル / サイドバー）にも
+ * 同じ丸み・面・影の文法を適用する。
+ * =========================================================================== */
+
+/* --- ホームのフィーチャーカード：白地 + 大きめの丸み + ホバーでピンクの縁 ---
+ * ※ スコープ付き CSS（[data-v-…]）より優先させるため !important（セクション 6 と同様）。*/
+.VPFeature {
+  border-radius: 16px !important; /* EC-BELTA カード系 8〜10px より一段大きく、余白の柔らかさを優先 */
+  border: 1px solid var(--vp-c-divider) !important;
+  background-color: var(--vp-c-bg) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06); /* EC-BELTA $shadow-sm 弱め */
+  transition: all 0.3s ease;
+}
+.VPFeature:hover {
+  border-color: rgba(215, 100, 146, 0.45) !important; /* Primary の淡い縁 */
+  box-shadow: 0 8px 16px rgba(215, 100, 146, 0.14);
+  transform: translateY(-2px);
+}
+/* カード内のアイコン枠を淡ピンクの円に（EC-BELTA の丸モチーフ）*/
+.VPFeature .icon {
+  border-radius: 50% !important;
+  background-color: var(--vp-c-brand-soft) !important;
+}
+.dark .VPFeature {
+  background-color: var(--vp-c-bg-soft) !important;
+  box-shadow: none;
+}
+
+/* --- コールアウト・コードブロックの丸みを統一（既定 8px → 12px）--- */
+.vp-doc .custom-block,
+.vp-doc div[class*='language-'] {
+  border-radius: 12px;
+}
+
+/* tip コールアウトは淡ピンクの面で「秘書からのひとこと」らしく */
+.custom-block.tip {
+  background-color: var(--vp-c-brand-soft);
+}
+
+/* インラインコードにもごく淡いピンクの面を敷く */
+:root {
+  --vp-code-bg: rgba(215, 100, 146, 0.08);
+  --vp-code-color: #c44d7d;
+}
+.dark {
+  --vp-code-bg: rgba(215, 100, 146, 0.16);
+  --vp-code-color: #e89bb8;
+}
+
+/* --- テーブル：ヘッダー行を淡ピンクに ---
+ * VitePress のテーブルは display:block + overflow-x:auto（横スクロール）かつ
+ * border-collapse:collapse のため、table への角丸は効かない。面の色だけで
+ * 柔らかさを出す（偶数行のゼブラは --vp-c-bg-soft 上書きにより自動で淡ピンクになる）。*/
+.vp-doc th {
+  background-color: var(--vp-c-bg-soft);
+}
+
+/* --- サイドバー：選択中の項目を丸い面で示す ---
+ * 選択中はテキスト色（既定でブランド色）に加え、淡ピンクの丸い面を敷く。*/
+.VPSidebarItem.level-1.is-active > .item,
+.VPSidebarItem.level-2.is-active > .item {
+  background-color: var(--vp-c-brand-soft);
+  border-radius: 8px;
+}
+.VPSidebarItem.level-1 > .item,
+.VPSidebarItem.level-2 > .item {
+  border-radius: 8px;
+  padding-left: 8px;
+  margin-left: -8px;
+  transition: background-color 0.2s ease;
+}
+
+/* --- ナビバー・検索ボタンもピル型に --- */
+.DocSearch-Button,
+#local-search .DocSearch-Button {
+  border-radius: 5em !important;
+}
+
+/* --- 見出しの上の区切り線（h2 既定の border-top）が淡ピンクになるのは
+ *     セクション 1 の --vp-c-divider 上書きで適用済み。ここでは h2 自体に
+ *     小さなピンクのアクセントを添える --- */
+.vp-doc h2 {
+  padding-left: 14px;
+  position: relative;
+}
+.vp-doc h2::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: calc(24px + 0.25em); /* h2 の padding-top: 24px ぶん下げて文字行に揃える */
+  bottom: 0.25em;
+  width: 4px;
+  border-radius: 2px;
+  background: linear-gradient(180deg, #d76492, #f6e4eb); /* Primary → Tertiary */
 }
