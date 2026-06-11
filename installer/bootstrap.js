@@ -44,6 +44,7 @@ let repoOverride = null;
 let dryRun = false;
 let maxAttempts = 3;
 let noClaude = false; // claude CLI を使わず宣言的フォールバックに固定
+let noGit = false; // git の確認・自動導入をスキップ（検証用）
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
   if (a === "--email") emailArg = argv[++i];
@@ -52,6 +53,7 @@ for (let i = 0; i < argv.length; i++) {
   else if (a === "--repo") repoOverride = argv[++i];
   else if (a === "--dry-run") dryRun = true;
   else if (a === "--no-claude") noClaude = true;
+  else if (a === "--no-git") noGit = true;
   else if (a === "--max-attempts") maxAttempts = parseInt(argv[++i], 10) || 3;
   else if (a === "-h" || a === "--help") {
     process.stdout.write(
@@ -59,11 +61,14 @@ for (let i = 0; i < argv.length; i++) {
         "Belta workflow agent ブートストラップ・インストーラー",
         "  node bootstrap.js [--email system-bot@belta.co.jp] [--base <dir>]",
         "                    [--ref <branch|tag>] [--repo <owner/repo>]",
-        "                    [--no-claude] [--dry-run] [--max-attempts <n>]",
+        "                    [--no-claude] [--no-git] [--dry-run] [--max-attempts <n>]",
         "",
         "  --no-claude   claude CLI を使わず（自動導入もせず）settings を宣言的に書くだけ",
         "                ※ 既定は: claude CLI が無ければ公式インストーラーで自動導入し、",
         "                  PATH を通したうえでターミナル再起動を案内する",
+        "  --no-git      git の確認・自動導入をスキップする（検証用）",
+        "                ※ 既定は: git が無ければ自動導入を促す（macOS は xcode-select、",
+        "                  Windows は winget。marketplace の取得が git に依存するため）",
         "",
       ].join("\n")
     );
@@ -285,6 +290,165 @@ function findClaude() {
 // claude をフォルダ内で実行（plugin コマンド）。stdio:inherit でそのまま画面に出す。
 function runClaude(args, cwd, stdio) {
   return spawnSync("claude", args, { cwd, stdio: stdio || "inherit", shell: IS_WIN });
+}
+
+// ---- git の確保（marketplace の取得は git clone に依存） ----------------------
+//
+// `claude plugin marketplace add` は marketplace リポジトリを git で取得するため、
+// git が無いとプラグインの取り込みも自動更新も失敗する。claude CLI 自動導入と同様、
+// インストール手段自体は OS 依存（xcode-select / winget）の許容例外。fail-open を厳守する。
+
+// macOS: git の実体は Xcode Command Line Tools（CLT）。CLT の有無は xcode-select -p で
+// 判定する（git コマンドの直接実行は、CLT 未導入時に意図しないタイミングで
+// インストールダイアログを出してしまうため避ける）。
+function cltInstalled() {
+  try {
+    const r = spawnSync("xcode-select", ["-p"], { stdio: "ignore" });
+    return !!(r && r.status === 0);
+  } catch {
+    return false;
+  }
+}
+
+// git を確保する。返り値 { ok, installedNeedsRestart? }。失敗しても中止しない（fail-open）。
+async function ensureGit() {
+  // macOS: CLT（= git）が無ければ OS 標準のインストールダイアログを開き、完了を待つ。
+  if (process.platform === "darwin") {
+    if (cltInstalled()) return { ok: true };
+    process.stdout.write(
+      "[bootstrap] git（コマンドライン・デベロッパツール）が見つかりません。\n" +
+        "  プラグインの取り込みに必要なため、インストールを開始します。\n"
+    );
+    if (dryRun) {
+      process.stdout.write("  （--dry-run）xcode-select --install を実行予定。\n");
+      return { ok: false };
+    }
+    try {
+      spawnSync("xcode-select", ["--install"], { stdio: "ignore" });
+    } catch {
+      /* ダイアログを開けない場合も下の案内へ */
+    }
+    process.stdout.write(
+      "  画面に表示されたダイアログで「インストール」を押してください（数分かかります）。\n"
+    );
+    if (process.stdin.isTTY) {
+      const asker = makeAsker();
+      try {
+        for (let i = 0; i < 60; i++) {
+          const ans = await asker.ask(
+            "  ダイアログのインストールが完了したら Enter を押してください（中断は q + Enter）: "
+          );
+          if (ans === null || String(ans).trim().toLowerCase() === "q") break;
+          if (cltInstalled()) {
+            process.stdout.write("  ✓ git が使えるようになりました。続行します。\n");
+            return { ok: true };
+          }
+          process.stdout.write("  … まだ確認できません。インストール完了を待ってから Enter を押してください。\n");
+        }
+      } finally {
+        asker.close();
+      }
+    }
+    warn("git が確認できませんでした。インストール完了後にこのインストーラーを再実行してください。");
+    return { ok: false };
+  }
+
+  // Windows / Linux: git コマンドの有無で判定。
+  if (commandWorks("git")) return { ok: true };
+  process.stdout.write("[bootstrap] git が見つかりません。プラグインの取り込みに必要です。\n");
+  if (dryRun) {
+    process.stdout.write("  （--dry-run）winget 等で自動インストールを試行予定。\n");
+    return { ok: false };
+  }
+  if (IS_WIN) {
+    if (commandWorks("winget")) {
+      process.stdout.write("[bootstrap]   → winget で git をインストール中 …\n");
+      let r = null;
+      try {
+        r = spawnSync(
+          "winget",
+          [
+            "install",
+            "--id",
+            "Git.Git",
+            "-e",
+            "--source",
+            "winget",
+            "--accept-source-agreements",
+            "--accept-package-agreements",
+          ],
+          { stdio: "inherit", shell: true }
+        );
+      } catch (e) {
+        warn(`winget の起動に失敗しました。${String((e && e.message) || e)}`);
+      }
+      if (r && r.status === 0) {
+        // 同一プロセスの PATH には未反映のことが多い。既定のインストール先を補って再確認。
+        const gitCmd = path.join(process.env.ProgramFiles || "C:\\Program Files", "Git", "cmd");
+        if (fs.existsSync(gitCmd) && !isOnPath(gitCmd)) {
+          process.env.PATH = `${process.env.PATH || ""};${gitCmd}`;
+        }
+        if (commandWorks("git")) {
+          process.stdout.write("[bootstrap]   ✓ git をインストールしました。続行します。\n");
+          return { ok: true };
+        }
+        process.stdout.write(
+          "[bootstrap]   ✓ git をインストールしました（反映には新しいウィンドウが必要です）。\n"
+        );
+        return { ok: false, installedNeedsRestart: true };
+      }
+      warn("winget での git インストールに失敗しました。");
+    }
+    warn(
+      "git を手動で導入してください: winget install --id Git.Git -e ／ " +
+        "または https://git-scm.com/download/win"
+    );
+    return { ok: false };
+  }
+  // Linux: 自動導入はせず手動案内のみ（パッケージマネージャが多岐にわたるため）。
+  warn("git を導入してから再実行してください（例: sudo apt-get install -y git）。");
+  return { ok: false };
+}
+
+// git が未確保のまま終了するときの案内（導入完了後のインストーラー再実行を促す）。
+function printGitNeededNextSteps(gitResult) {
+  const bar = "============================================================";
+  const lines = ["", bar, "  ⚠ git のインストール完了後に、もう一度実行してください", bar, ""];
+  if (gitResult && gitResult.installedNeedsRestart) {
+    lines.push(
+      "  git のインストール自体は完了しています。",
+      "  この画面を閉じて新しいウィンドウを開き、このインストーラーを",
+      "  もう一度実行してください。",
+      ""
+    );
+  } else if (process.platform === "darwin") {
+    lines.push(
+      "  「コマンドライン・デベロッパツール」のダイアログのインストールが",
+      "  完了したら、このインストーラーをもう一度ダブルクリックしてください。",
+      "",
+      "  ※ ダイアログを閉じてしまった場合は、ターミナルで次を実行:",
+      "       xcode-select --install",
+      ""
+    );
+  } else if (IS_WIN) {
+    lines.push(
+      "  次のいずれかで git を導入したあと、新しいウィンドウで",
+      "  このインストーラーをもう一度実行してください:",
+      "",
+      "       winget install --id Git.Git -e",
+      "       または https://git-scm.com/download/win",
+      ""
+    );
+  } else {
+    lines.push("  git を導入したあと、このインストーラーをもう一度実行してください。", "");
+  }
+  lines.push(
+    "  （設定ファイルは作成済みです。git 導入後の再実行で、プラグインの",
+    "    取り込みまで自動で進みます。）",
+    bar,
+    ""
+  );
+  process.stdout.write(lines.join("\n"));
 }
 
 // ---- claude CLI 自動インストール（フォールバック） ---------------------------
@@ -593,6 +757,22 @@ function printClaudeInstalledNextSteps(folder, method, pathInfo) {
     initBelta(email, folder);
   } catch (e) {
     warn(`下ごしらえの一部に失敗しました（継続します）。${String((e && e.message) || e)}`);
+  }
+
+  // (1.5) git の確保（marketplace の取得が git clone に依存するため。--no-git でスキップ可）
+  if (!noGit) {
+    const git = await ensureGit();
+    if (!git.ok && !dryRun) {
+      // git 無しでは plugin の取り込みも自動更新も失敗する。settings を宣言的に書いた上で
+      // 「git 導入 → 再実行」を案内して終了する（fail-open。再実行は冪等に続きから進む）。
+      try {
+        writeSettings(folder);
+      } catch {
+        /* best-effort */
+      }
+      printGitNeededNextSteps(git);
+      process.exit(0);
+    }
   }
 
   // (2) プラグイン導入：claude CLI があれば実インストール、無ければ自動導入 → 再起動案内

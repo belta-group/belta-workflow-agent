@@ -25,13 +25,36 @@ find_node() {
 
 NODE="$(find_node)"
 if [ -z "$NODE" ]; then
-  echo "Node.js が見つかりませんでした。"
-  echo "https://nodejs.org から Node.js を導入するか、ターミナルで次を実行してください:"
-  echo "  node \"$DIR/bootstrap.js\""
+  echo "Node.js が見つかりませんでした。インストーラーの実行には Node.js が必要です。"
   echo
-  read -n 1 -s -r -p "何かキーを押すと閉じます..."
-  echo
-  exit 1
+  # Homebrew があれば、その場で自動インストールを提案する。
+  if command -v brew >/dev/null 2>&1; then
+    printf "Homebrew で Node.js をインストールしますか？（数分かかります） [Y/n]: "
+    read -r ans
+    case "$ans" in
+      [nN]*) ;;
+      *)
+        if brew install node; then
+          NODE="$(find_node)"
+          [ -n "$NODE" ] && echo "Node.js をインストールしました。インストーラーを続行します。"
+        else
+          echo "Homebrew でのインストールに失敗しました。"
+        fi
+        ;;
+    esac
+  fi
+  # それでも無ければ、ダウンロードページを開いて再実行を案内する。
+  if [ -z "$NODE" ]; then
+    echo
+    echo "ブラウザで Node.js のダウンロードページを開きます。"
+    echo "「LTS（推奨版）」をインストールしたあと、このインストーラーを"
+    echo "もう一度ダブルクリックしてください。"
+    open "https://nodejs.org/ja/" 2>/dev/null || echo "  → https://nodejs.org/ja/ を開いてください"
+    echo
+    read -n 1 -s -r -p "何かキーを押すと閉じます..."
+    echo
+    exit 1
+  fi
 fi
 
 "$NODE" "$DIR/bootstrap.js" "$@"
