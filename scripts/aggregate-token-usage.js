@@ -160,7 +160,7 @@ function runCli() {
     lines.push(`- セッション数: ${fmt(totals.sessions)} / 総ターン数: ${fmt(totals.turns)}`);
     lines.push(`- キャッシュヒット率（read / 全入力）: ${(cacheHitRatio * 100).toFixed(1)}%`);
     lines.push("");
-    lines.push(`| セッション | 日付 | ターン | input | output | cache作成 | cache読取 | 課金相当(概算) |`);
+    lines.push(`| セッション | 日付 | ターン | input | output | cache作成 | cache読取 | API換算(概算) |`);
     lines.push(`| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |`);
     for (const s of sessions) {
       lines.push(
@@ -177,7 +177,7 @@ function runCli() {
     );
     lines.push("");
     lines.push(
-      `> 課金相当(概算) = input + output + cache作成 + cache読取×0.1。正確な料金ではなく、` +
+      `> API換算(概算) = input + output + cache作成 + cache読取×0.1。トークン数であり金額ではない。` +
         `セッション間比較・総量把握のための目安。`
     );
     process.stdout.write(lines.join("\n") + "\n");

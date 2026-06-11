@@ -24,8 +24,9 @@
 //       5 時間ローリング消費の算出と日次トレンドの材料。直近分のみ保持（上限あり）。
 //   (5) limit_equiv_token_estimate: 利用制限カウントに寄せた推計
 //       （input + output + cache_creation + cache_read を満額で合算）。
-//       billable_token_estimate（cache_read 0.1 掛けの課金相当）と併記する。
-//       どちらも公式の制限カウントそのものではない（目安）。
+//       billable_token_estimate（cache_read 0.1 掛けの API 換算トークン数）と併記する。
+//       どちらも公式の制限カウントそのものではない（目安）。トークン数であり金額では
+//       ないため、表示側では「課金」の語を避け「API換算（参考）」と表記する。
 // - シェル非依存の Node.js（Claude Code 同梱の node）。Mac / Windows 両対応。
 //   パスは path API で連結し、ホームは環境変数から解決する（区切り直書きしない）。
 // - フックはセッションを止めてはいけない。入力不正・読み取り失敗など何が起きても
@@ -215,7 +216,7 @@ try {
     }
   }
 
-  // 課金相当の概算トークン（cache_read は通常コストの ~1/10 として重み付け）。
+  // API 換算の概算トークン（cache_read は通常コストの ~1/10 として重み付け）。金額ではない。
   const billableEstimate =
     totals.input_tokens +
     totals.output_tokens +

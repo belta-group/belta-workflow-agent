@@ -26,7 +26,9 @@
 // 【数値の意味（重要）】
 //   - limit_equiv（利用制限相当）: input+output+cache作成+cache読取 を満額合算。
 //     Claude の利用制限カウントに「寄せた」推計で、公式カウントそのものではない。
-//   - billable（課金相当）: cache読取を 0.1 掛けで合算。API 料金感覚の目安。
+//   - billable（API換算）: cache読取を 0.1 掛けで合算。API 従量課金で使った場合の
+//     カウント感覚の目安。**トークン数であり金額ではない**。Pro/Max は定額制のため
+//     消費が増えても追加請求は発生しない（表示ラベルでも「金額」と誤読させない）。
 //   - ツール別内訳: トークンはターン単位でしか記録されないため、各ターンの消費を
 //     そのターンのツール呼び出しへ均等按分した近似（「何が重いか」の傾向用）。
 
@@ -330,7 +332,7 @@ function renderSessions(sessions) {
     )
     .join("");
   return `<table class="sess">
-    <thead><tr><th>セッション</th><th>日付</th><th class="num">ターン</th><th class="num">制限相当</th><th class="num">課金相当</th></tr></thead>
+    <thead><tr><th>セッション</th><th>日付</th><th class="num">ターン</th><th class="num">制限相当</th><th class="num">API換算（参考）</th></tr></thead>
     <tbody>${rows}</tbody>
   </table>`;
 }
@@ -409,13 +411,14 @@ function buildHtml(stats) {
 
     <div class="panel span2"><h2>累計サマリ</h2>
       <div class="stat-list">
-        <div class="stat"><div class="k">制限相当（累計）</div><div class="v">${short(t.limit_equiv_token_estimate)}</div><div class="s">${fmt(t.limit_equiv_token_estimate)}</div></div>
-        <div class="stat"><div class="k">課金相当（累計）</div><div class="v">${short(t.billable_token_estimate)}</div><div class="s">${fmt(t.billable_token_estimate)}</div></div>
+        <div class="stat"><div class="k">制限相当（累計）</div><div class="v">${short(t.limit_equiv_token_estimate)}</div><div class="s">${fmt(t.limit_equiv_token_estimate)} トークン</div></div>
+        <div class="stat"><div class="k">API換算トークン（参考・累計）</div><div class="v">${short(t.billable_token_estimate)}</div><div class="s">${fmt(t.billable_token_estimate)} トークン</div></div>
         <div class="stat"><div class="k">キャッシュヒット率</div><div class="v">${cachePct}%</div><div class="s">高いほど効率的</div></div>
         <div class="stat"><div class="k">セッション</div><div class="v">${fmt(t.sessions)}</div><div class="s">記録された会話の数</div></div>
         <div class="stat"><div class="k">ターン</div><div class="v">${fmt(t.turns)}</div><div class="s">応答の回数</div></div>
         <div class="stat"><div class="k">出力トークン</div><div class="v">${short(t.output_tokens)}</div><div class="s">${fmt(t.output_tokens)}</div></div>
       </div>
+      <div class="note" style="margin-top:12px;">この画面の数値は<b>すべてトークン数（使った量の個数）で、金額ではありません</b>。Pro/Max プランは月額定額制のため、消費が増えても追加請求は発生しません（利用制限に当たりやすくなるだけ）。「API換算」は、もし API 従量課金で使った場合のカウント感覚の参考値（キャッシュ読取を 0.1 掛けで合算したトークン数）です。</div>
     </div>
 
     <div class="panel span2"><h2>日別の消費（直近${TREND_DAYS}日・制限相当）</h2>${renderTrend(stats.trend)}</div>
@@ -516,8 +519,9 @@ function runCli() {
       `# ⚡ トークン消費サマリ`,
       "",
       `- 直近5時間（制限相当の推計）: ${fmt((stats.rolling_5h || {}).limit_equiv || 0)} / しきい値 ${fmt((stats.rolling_5h || {}).threshold || 0)}`,
-      `- 累計: 制限相当 ${fmt(t.limit_equiv_token_estimate)} ／ 課金相当 ${fmt(t.billable_token_estimate)} ／ キャッシュヒット率 ${((stats.cache_hit_ratio || 0) * 100).toFixed(1)}%`,
+      `- 累計: 制限相当 ${fmt(t.limit_equiv_token_estimate)} ／ API換算（参考） ${fmt(t.billable_token_estimate)} ／ キャッシュヒット率 ${((stats.cache_hit_ratio || 0) * 100).toFixed(1)}%`,
       `- セッション ${fmt(t.sessions)} ／ ターン ${fmt(t.turns)}`,
+      `- ※数値はすべてトークン数で、金額ではありません（Pro/Max は定額制・追加請求なし）`,
     ];
     if ((stats.by_model || []).length) {
       lines.push(`- モデル別: ` + stats.by_model.map((m) => `${m.model} ${short(m.limit_equiv)}`).join(" / "));

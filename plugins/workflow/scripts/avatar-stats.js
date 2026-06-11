@@ -403,7 +403,7 @@ const BADGES = [
   { id: "artisan", name: "技を授かる", emoji: "🛠️", tier: "silver", req: "自作スキル 1 個", cond: (s) => s.skills_authored >= 1 },
   { id: "polyglot", name: "四刀流", emoji: "🗡️", tier: "gold", req: "4 ツールすべて活用", cond: (s) => s.tools.notion >= 1 && s.tools.slack >= 1 && s.tools.github >= 1 && s.tools.drive >= 1 },
   { id: "cache-master", name: "キャッシュ番長", emoji: "⚡", tier: "silver", req: "キャッシュ率 70%", cond: (s) => s.cache_hit_ratio >= 0.7 },
-  { id: "token-titan", name: "大量稼働", emoji: "🏋️", tier: "gold", req: "課金相当 100 万", cond: (s) => s.billable >= 1000000 },
+  { id: "token-titan", name: "大量稼働", emoji: "🏋️", tier: "gold", req: "API換算 100 万トークン", cond: (s) => s.billable >= 1000000 },
   { id: "knowledge-keeper", name: "物覚えの達人", emoji: "🧠", tier: "bronze", req: "事実訂正メモリ 3 件", cond: (s) => s.memory_count >= 3 },
   { id: "well-understood", name: "あうんの呼吸", emoji: "🤝", tier: "silver", req: "ユーザーモデル項目 8 個", cond: (s) => s.usermodel_items >= 8 },
   { id: "early-bird", name: "朝型", emoji: "🌅", tier: "bronze", req: "朝(5-9時)の稼働 5 回", cond: (s) => s.hours.morning >= 5 },
