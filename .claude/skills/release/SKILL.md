@@ -54,13 +54,18 @@ gh release create vX.Y.Z --repo belta-group/belta-workflow-agent --target main \
 - 日本語。`## <変更カテゴリ>` 見出し＋箇条書き。
 - 「何が変わったか」に加えて「なぜ」（事故・誤読・詰まりの事例）を 1〜2 文で。
 - 機能・記録形式に変更がなければその旨を明記。
-- **末尾に再インストール案内を必ず入れる**（下記の罠を参照）:
-  > **更新の反映には再インストールが必要です**（marketplace の自動更新は現在機能しないため）。`/plugin` から workflow を再インストールしてください。
+- **末尾に更新手順の案内を必ず入れる**（下記の罠を参照）:
+  > **既存利用者の更新には次の 2 コマンドが必要です**（marketplace の自動更新は現在機能しないため）。
+  > 1. `claude plugin marketplace update belta-workflow-agent` — marketplace クローンを最新化
+  > 2. 専用フォルダ（例: `~/my-agent`）で `claude plugin update workflow@belta-workflow-agent --scope local` — 参照を新バージョンへ切替
+  >
+  > 適用には Claude Code の再起動が必要です。`--scope local` を忘れると失敗します。
 
 ## 罠（Gotchas）
 
 - **バージョンは 2 ファイル**。`plugin.json` だけ上げて `marketplace.json` を忘れると、過去に追従コミット（`chore: marketplace.json を v0.5.0 へ追従`）が必要になった。Step 2 で必ず両方同時に。
-- **marketplace の autoUpdate は既知バグで機能しない**（`~/.claude/.../memory/claude-plugin-autoupdate-bug.md` 参照）。利用者へは手動再インストール案内が唯一の更新経路なので、リリースノート末尾の案内を省略しない。
+- **marketplace の autoUpdate は既知バグで機能しない**（`~/.claude/.../memory/claude-plugin-autoupdate-bug.md` 参照）。利用者へは手動更新の案内が唯一の更新経路なので、リリースノート末尾の案内を省略しない。
+- **`claude plugin install` での再インストールは更新にならない**。既インストール環境では「already installed」で何もせず実体が古いまま残る（2026-06-11 の v0.5.3 配布時に判明）。正しい更新は (1) `claude plugin marketplace update belta-workflow-agent` でクローンと cache を最新化 → (2) 専用フォルダで `claude plugin update workflow@belta-workflow-agent --scope local` で installed_plugins.json の参照を切替、の 2 コマンド。`--scope local` は必須（既定の user スコープでは「not installed at scope user」で失敗。本プラグインはローカルスコープ運用のため）。適用には Claude Code の再起動が必要。
 - **更新通知は version 比較で動く**。`hooks/session-start.js` (E) が同梱 `plugin.json` の `version` と `~/.belta/plugin-version.json` を比較して「v旧→v新」を 1 回通知する。version を上げ忘れると利用者に更新が伝わらない。
 - **タグは `gh release create` がリモートに作る**。ローカルで `git tag` を打つ必要はなく、ローカルのタグ一覧はリリースより遅れていることがある（前回タグの特定は `git tag` でなく `gh release list` を使う）。
 - **開発者の手元で動く `/usage` 等はインストール済みキャッシュ**（`~/.claude-profiles/<profile>/plugins/cache/.../<ver>/`）であり、リポジトリの修正は反映されていない。修正の動作確認はリポジトリのスクリプトを直接 `node plugins/workflow/scripts/<name>.js` で実行して行う。
