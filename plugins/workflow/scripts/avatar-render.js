@@ -131,7 +131,7 @@ function renderAvatarSvg(stageIndex, level) {
   // 段階で装飾が増える簡易キャラ（決定的）。画像未設定時のフォールバック。
   const hue = (level * 12) % 360;
   const body = `<circle cx="90" cy="100" r="52" fill="hsl(${hue},60%,55%)" stroke="#fff" stroke-width="3"/>`;
-  const eyes = `<circle cx="74" cy="95" r="6" fill="#1a1f3a"/><circle cx="106" cy="95" r="6" fill="#1a1f3a"/>`;
+  const eyes = `<circle class="eye" cx="74" cy="95" r="6" fill="#1a1f3a"/><circle class="eye" cx="106" cy="95" r="6" fill="#1a1f3a"/>`;
   const mouth = `<path d="M72 118 Q90 132 108 118" stroke="#1a1f3a" stroke-width="3" fill="none" stroke-linecap="round"/>`;
   let deco = "";
   if (stageIndex >= 1) deco += `<path d="M55 60 L90 30 L125 60 Z" fill="hsl(${hue},70%,45%)"/>`; // 帽子
@@ -154,11 +154,14 @@ function renderPortrait(stats, name, imageDataUri) {
   }
   // 段階に応じた周囲の装飾（画像でも進化が分かる）
   const crown = stats.stage_index >= 5 ? `<div class="crown">👑</div>` : stats.stage_index >= 4 ? `<div class="crown">✨</div>` : "";
+  // id はダッシュボード末尾のアニメーション JS（クリック反応・吹き出し）が参照する
   return `
-    <div class="portrait-wrap">
+    <div class="portrait-wrap" id="avatar" title="クリックすると反応するよ">
+      <div class="bubble" id="bubble"></div>
       ${crown}
-      <div class="portrait" style="${ring}">${inner}</div>
+      <div class="portrait idle" id="portrait" style="${ring}">${inner}</div>
       <div class="stage-emoji">${esc(stats.stage_emoji || STAGE_EMOJI[0])}</div>
+      <div class="tap-hint">クリックすると反応するよ</div>
     </div>`;
 }
 
@@ -286,7 +289,7 @@ function buildHtml(stats, meta, activeDays) {
 <meta name="robots" content="noindex,nofollow"/>
 <title>${esc(meta.name)} — 育成アバター</title>
 <style>
-  /* EC-BELTA デザイントークン（app/assets/scss/base/_variables.scss が正）
+  /* EC-BELTA デザイントークン（app/assets/scss/base/_variables.scss が正。規約: .claude/rules/design.md）
      Primary #d76492 / Tertiary #f6e4eb / 背景 #fff6f7・#fffaf0 / テキスト #3d3d3d / サブ #888 */
   :root { --bg:#fff6f7; --panel:#fff; --panel2:#fff6f7; --txt:#3d3d3d; --sub:#888; --accent:#d76492;
     --border:#f3e4ea; --shadow:0 1px 4px rgba(0,0,0,.06); }
@@ -304,8 +307,42 @@ function buildHtml(stats, meta, activeDays) {
   .portrait-wrap { position:relative; width:180px; flex:0 0 180px; text-align:center; }
   .portrait { width:160px; height:160px; border-radius:50%; overflow:hidden; margin:0 auto;
     display:flex; align-items:center; justify-content:center; background:#f6e4eb; }
-  .crown { position:absolute; top:-14px; left:0; right:0; font-size:28px; }
+  .crown { position:absolute; top:-14px; left:0; right:0; font-size:28px; animation:crown-bob 2.4s ease-in-out infinite; }
   .stage-emoji { font-size:24px; margin-top:6px; }
+  /* ---- アバターアニメーション（常時アイドル＋クリック反応） ---- */
+  .portrait-wrap { cursor:pointer; user-select:none; -webkit-user-select:none; }
+  .portrait { will-change:transform; }
+  @keyframes idle-sway { 0%,100%{transform:rotate(-2.5deg) translateY(0);} 50%{transform:rotate(2.5deg) translateY(-5px);} }
+  .portrait.idle { animation:idle-sway 3.4s ease-in-out infinite; }
+  @keyframes crown-bob { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-4px);} }
+  @keyframes spin-once { from{transform:rotate(0);} to{transform:rotate(360deg);} }
+  .portrait.anim-spin { animation:spin-once .9s cubic-bezier(.45,.05,.35,1.15) 1; }
+  @keyframes dokidoki { 0%,100%{transform:scale(1);} 12%{transform:scale(1.14);} 24%{transform:scale(.98);} 36%{transform:scale(1.12);} 50%{transform:scale(1);} }
+  .portrait.anim-dokidoki { animation:dokidoki 1.1s ease-in-out 1; }
+  @keyframes wakuwaku { 0%,100%{transform:translateY(0) scale(1,1);} 12%{transform:translateY(2px) scale(1.06,.92);}
+    30%{transform:translateY(-20px) scale(.96,1.06);} 48%{transform:translateY(0) scale(1.05,.94);}
+    62%{transform:translateY(-10px) scale(.98,1.02);} 78%{transform:translateY(0) scale(1.02,.98);} }
+  .portrait.anim-wakuwaku { animation:wakuwaku 1.1s ease-in-out 1; }
+  @keyframes talk-bob { 0%,100%{transform:scale(1,1);} 25%{transform:scale(1.03,.97);} 50%{transform:scale(.98,1.02);} 75%{transform:scale(1.02,.98);} }
+  .portrait.anim-talk { animation:talk-bob .55s ease-in-out 4; }
+  /* SVG フォールバックの目はときどきまばたきする */
+  @keyframes blink { 0%,92%,100%{transform:scaleY(1);} 96%{transform:scaleY(.1);} }
+  .eye { transform-origin:center; transform-box:fill-box; animation:blink 4.6s ease-in-out infinite; }
+  /* 吹き出し（話す） */
+  .bubble { position:absolute; bottom:calc(100% + 10px); left:50%; transform:translateX(-50%); background:#fff;
+    border:2px solid #eab7ca; border-radius:14px; padding:8px 12px; font-size:13px; line-height:1.5; color:var(--txt);
+    box-shadow:var(--shadow); white-space:nowrap; opacity:0; pointer-events:none; transition:opacity .25s, transform .25s; z-index:3; }
+  .bubble::after { content:""; position:absolute; top:100%; left:50%; margin-left:-6px; border:6px solid transparent; border-top-color:#eab7ca; }
+  .bubble.show { opacity:1; transform:translateX(-50%) translateY(-4px); }
+  .tap-hint { font-size:11px; color:var(--sub); margin-top:4px; }
+  /* クリック時に舞う絵文字パーティクル */
+  .pop { position:absolute; left:50%; top:40%; font-size:20px; pointer-events:none; z-index:2; animation:pop-float 1.1s ease-out forwards; }
+  @keyframes pop-float { 0%{opacity:0; transform:translate(-50%,0) scale(.6);} 15%{opacity:1;}
+    100%{opacity:0; transform:translate(calc(-50% + var(--dx,0px)),-90px) scale(1.15) rotate(var(--rot,0deg));} }
+  /* 動きを減らす設定（OS）では装飾アニメーションを止める */
+  @media (prefers-reduced-motion: reduce) {
+    .portrait.idle, .portrait[class*="anim-"], .crown, .eye, .pop { animation:none !important; }
+  }
   .hero-info { flex:1; }
   .name { font-size:28px; font-weight:700; }
   .lvline { font-size:15px; color:var(--sub); margin:4px 0 14px; }
@@ -419,9 +456,127 @@ function buildHtml(stats, meta, activeDays) {
   </div>
   <div class="foot">生成: ${esc(stats.generated_at)} ／ このページはあなたのPC内（~/.belta/）にのみ保存され、外部送信されません。</div>
 </div>
+${buildAvatarScript(stats, meta)}
 </body>
 </html>
 `;
+}
+
+// ---- アバターのアニメーション JS（生成 HTML に同梱・外部依存ゼロ）------------
+// 揺れる（常時）・1回転・話す（吹き出し）・ドキドキ・ワクワクのクリック反応。
+// Math.random はブラウザ側の演出にのみ使う（HTML 生成自体は決定的なまま）。
+function buildAvatarScript(stats, meta) {
+  const cfg = {
+    name: meta.name,
+    level: stats.level,
+    stage: stats.stage,
+    streak: (stats.streak && stats.streak.current) || 0,
+    nextBadge: ((stats.badges && stats.badges.locked) || []).length
+      ? stats.badges.locked[0].name
+      : "",
+  };
+  // </script> 等の混入を防ぐ（名前は利用者入力）
+  const cfgJson = JSON.stringify(cfg).replace(/</g, "\\u003c");
+  return `<script>
+(function () {
+  var cfg = ${cfgJson};
+  var wrap = document.getElementById("avatar");
+  var p = document.getElementById("portrait");
+  var bubble = document.getElementById("bubble");
+  if (!wrap || !p) return;
+  var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function pick(a) { return a[Math.floor(Math.random() * a.length)]; }
+
+  var sayTimer = null;
+  function say(text, ms) {
+    if (!bubble) return;
+    bubble.textContent = text;
+    bubble.classList.add("show");
+    clearTimeout(sayTimer);
+    sayTimer = setTimeout(function () { bubble.classList.remove("show"); }, ms || 2400);
+  }
+
+  function burst(emoji, n) {
+    if (reduced) return;
+    for (var i = 0; i < n; i++) {
+      var s = document.createElement("span");
+      s.className = "pop";
+      s.textContent = emoji;
+      s.style.setProperty("--dx", (Math.random() * 120 - 60).toFixed(0) + "px");
+      s.style.setProperty("--rot", (Math.random() * 60 - 30).toFixed(0) + "deg");
+      s.style.animationDelay = (Math.random() * 0.25).toFixed(2) + "s";
+      wrap.appendChild(s);
+      (function (el) {
+        el.addEventListener("animationend", function () { el.remove(); });
+        setTimeout(function () { el.remove(); }, 2000); // 保険
+      })(s);
+    }
+  }
+
+  var busy = false;
+  function play(kind) {
+    if (reduced) return; // 動きを減らす設定では吹き出しだけ
+    if (busy) return;
+    busy = true;
+    p.classList.remove("idle");
+    void p.offsetWidth; // reflow でアニメーションを確実に再生
+    p.classList.add("anim-" + kind);
+    var finished = false;
+    var done = function () {
+      if (finished) return;
+      finished = true;
+      p.classList.remove("anim-" + kind);
+      p.classList.add("idle");
+      busy = false;
+    };
+    p.addEventListener("animationend", done, { once: true });
+    setTimeout(done, 3000); // 保険（タブ非表示等で animationend が落ちても復帰）
+  }
+
+  var talkLines = [
+    cfg.name + "だよ！呼んだ？",
+    "いま Lv." + cfg.level + "（" + cfg.stage + "）まで育ったよ！",
+    "今日も一緒にがんばろうね！",
+    "使うほど、もっと育つよ🌱",
+    cfg.streak > 1 ? "連続 " + cfg.streak + " 日稼働中！えらい！" : "毎日使うと連続稼働が伸びるよ",
+  ];
+  if (cfg.nextBadge) talkLines.push("次は「" + cfg.nextBadge + "」を狙おう！");
+
+  var acts = [
+    function () { play("talk"); say(pick(talkLines), 2800); },
+    function () { play("dokidoki"); burst("💗", 5); say("ドキドキ…！", 1800); },
+    function () { play("wakuwaku"); burst("✨", 6); say("ワクワク！", 1800); },
+    function () { play("spin"); say("くるん！", 1500); },
+  ];
+
+  // シャッフルした順に一巡してから再シャッフル（同じ反応の連発を避ける）
+  var queue = [];
+  wrap.addEventListener("click", function () {
+    if (busy) return;
+    if (!queue.length) {
+      queue = acts.slice();
+      for (var i = queue.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var t = queue[i]; queue[i] = queue[j]; queue[j] = t;
+      }
+    }
+    queue.shift()();
+  });
+
+  // 開いたときのあいさつ
+  var greetings = [
+    "おかえり！待ってたよ",
+    "やっほー！" + cfg.name + "だよ",
+    "きょうも会えてうれしい！",
+  ];
+  setTimeout(function () {
+    say(pick(greetings), 3000);
+    play("wakuwaku");
+    burst("✨", 4);
+  }, 600);
+})();
+</scr` + `ipt>`;
 }
 
 function placeholderHtml(name) {
