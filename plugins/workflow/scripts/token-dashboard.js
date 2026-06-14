@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Belta workflow plugin — トークン消費ダッシュボード（決定的）
+// BELTA workflow plugin — トークン消費ダッシュボード（決定的）
 //
 // hooks/token-usage.js が書き出すセッション単位レコード（~/.belta/audit/tokens/*.json）
 // を集計し、「どの処理（ツール・スキル・モデル）にどれだけトークンを使ったか」を
@@ -188,7 +188,7 @@ function computeTokenStats(opts = {}) {
     totals.cache_read_input_tokens + totals.cache_creation_input_tokens + totals.input_tokens;
   const cacheHitRatio = cacheDenom > 0 ? totals.cache_read_input_tokens / cacheDenom : 0;
 
-  // 直近 5 時間ローリング消費としきい値（警告フックと同じ計算）。
+  // 直近 5 時間ローリング消費と目安ライン（tokens-util.js の共通計算）。
   const rolling5h = sumRecentLimitEquiv(tokensDir, FIVE_HOURS_MS);
   const threshold5h = readTokenWarnThreshold(beltaDir);
 
@@ -300,7 +300,7 @@ function renderGauge(rolling) {
   const used = Number(rolling.limit_equiv) || 0;
   const threshold = Number(rolling.threshold) || 0;
   if (threshold <= 0) {
-    return `<div class="empty">警告しきい値が無効化されています（config.yaml の token_5h_warn が 0）。直近5時間の消費: ${fmt(used)}</div>`;
+    return `<div class="empty">目安ラインが無効です（config.yaml の token_5h_warn が 0）。直近5時間の消費: ${fmt(used)}</div>`;
   }
   const pct = Math.min(100, Math.round((used / threshold) * 100));
   // 超過=EC-BELTA Caution / 接近=レビュー星ゴールド / 余裕=妊娠中グリーン

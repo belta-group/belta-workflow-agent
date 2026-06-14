@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Belta workflow plugin — 育成アバター 初期設定（名前 + 画像アップロード）
+// BELTA workflow plugin — 育成アバター 初期設定（名前 + 画像アップロード）
 //
 // オンボーディング（/workflow-setup の Step 1.6）や /avatar から呼ばれ、アバターの
 // 名前と任意のポートレート画像を登録する。画像は <belta>/avatar/base.<ext> に複製し、
@@ -78,7 +78,7 @@ function writeYaml(map) {
   fs.mkdirSync(beltaDir, { recursive: true });
   const order = ["name", "image_file", "created_at", "updated_at"];
   const keys = order.filter((k) => k in map).concat(Object.keys(map).filter((k) => !order.includes(k)));
-  const lines = ["# Belta avatar 設定（machine-readable）。/avatar や avatar-setup.js で更新。"];
+  const lines = ["# BELTA avatar 設定（machine-readable）。/avatar や avatar-setup.js で更新。"];
   for (const k of keys) lines.push(`${k}: ${formatValue(map[k])}`);
   const tmp = yamlPath + ".tmp";
   fs.writeFileSync(tmp, lines.join("\n") + "\n");

@@ -1,6 +1,6 @@
 # MCP 4 ツール接続リファレンス
 
-Belta ワークフローエージェントが連携する 4 ツール（Notion / Slack / Google Drive / GitHub）の接続方法・認証方式・検証コマンドの参照表。実行手順そのものは [`commands/workflow-setup.md`](../../../commands/workflow-setup.md) に、運用時の発話 → ツール分岐は [`SKILL.md`](../SKILL.md) に記載。本ファイルは「どのツールがどの認証で、どう確認するか」を 1 枚で引けるリファレンス。
+BELTA ワークフローエージェントが連携する 4 ツール（Notion / Slack / Google Drive / GitHub）の接続方法・認証方式・検証コマンドの参照表。実行手順そのものは [`commands/workflow-setup.md`](../../../commands/workflow-setup.md) に、運用時の発話 → ツール分岐は [`SKILL.md`](../SKILL.md) に記載。本ファイルは「どのツールがどの認証で、どう確認するか」を 1 枚で引けるリファレンス。
 
 > **認証はすべて OAuth ベース。** PAT / API キーの手動コピペは不要。平文の API キーをローカルに保管しない（`~/.belta/secrets.env` は Phase -1 では生成しない）。
 >

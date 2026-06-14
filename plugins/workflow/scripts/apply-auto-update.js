@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Belta workflow plugin — marketplace auto-update の先回り有効化
+// BELTA workflow plugin — marketplace auto-update の先回り有効化
 //
 // 利用者の settings.json の `extraKnownMarketplaces.<marketplace>` に
 // `{ source: { source: "github", repo }, autoUpdate: true }` を冪等マージし、

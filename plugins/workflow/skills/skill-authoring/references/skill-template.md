@@ -4,7 +4,7 @@
 `<agent_home>/.claude/skills/<name>/` に新規生成する際の **ディレクトリ構成**・**SKILL.md frontmatter 雛形**・**description 設計指針**。
 
 中身の記述品質は Claude Code 標準の `skill-creator` スキルに委譲してよい。本雛形は
-Belta プラグインの規約（配置・クロスプラットフォーム）に合わせるための最小要件を定める。
+BELTA プラグインの規約（配置・クロスプラットフォーム）に合わせるための最小要件を定める。
 
 ---
 
@@ -50,7 +50,7 @@ created_at: <YYYY-MM-DD>
 ```
 
 > `model` フィールドは置かない（スキルは subagent と異なり、発火中の文脈のモデルで動く）。
-> モデルの出し分けが要る重い委譲なら、そもそも agent-learning を選ぶべき（消去法ゲート条件 3）。
+> 隔離した文脈での重い委譲が要るなら、そもそも agent-learning を選ぶべき（消去法ゲート条件 3）。
 
 ---
 

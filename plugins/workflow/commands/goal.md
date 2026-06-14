@@ -1,14 +1,7 @@
 ---
 description: 複数ステップの成果物ゴールを登録し、進捗を追跡し、セッションをまたいで完遂まで進める。引数なしで進行中ゴールの一覧と次アクションを表示。
 argument-hint: "[new <ゴール>|list|resume <slug>|done <slug>|archive <slug>]"
-model: inherit
 ---
-
-<!--
-model: inherit — ゴールのステップ分解・進捗の意味づけ・再開判断を行うため、
-セッションのモデル（通常 Opus）を継承する。
-走査（一覧・進捗集計・stale 検知）は scripts/goal-scan.js が決定的に担う二層構造。
--->
 
 # /goal — 複数ステップのゴール管理
 

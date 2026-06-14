@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Belta workflow plugin — notes 自動記録 + retention フック（Stop）
+// BELTA workflow plugin — notes 自動記録 + retention フック（Stop）
 //
 // メインエージェントの応答が終わるたびに発火し、トランスクリプト（JSONL）から
 // その日の「利用者の依頼」を機械的に抽出して、当日の notes ファイル

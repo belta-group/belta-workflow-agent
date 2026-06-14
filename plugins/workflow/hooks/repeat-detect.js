@@ -1,15 +1,11 @@
 #!/usr/bin/env node
 //
-// Belta workflow plugin — 同一セッション内の反復検知（UserPromptSubmit）
+// BELTA workflow plugin — 同一セッション内の反復検知（UserPromptSubmit）
 //
 // 2 種類の反復を「同一セッション内」で決定的に検知し、追加コンテキストを注入する:
 //   (1) 同じ趣旨の依頼が 2 回以上 → パーソナライズ提案（agent-learning ほか）を促す。
 //   (2) 事実誤り（ハルシネーション）の指摘が 2 回以上 → 事実訂正メモリ
 //       （hallucination-memory）への記録を促し、二度と同じ誤りを犯さないようにする。
-// あわせて (3) 直近 5 時間のトークン消費（token-usage.js の記録）がしきい値
-//   （config.yaml の token_5h_warn）を超えていたら、セッション途中でも一度だけ
-//   省トークンを促す警告を注入する（SessionStart 警告だけでは長いセッション内の
-//   消費急増を拾えないため。5 時間に 1 回までのクールダウン付き）。
 // 検知は決定的（正規化した文字列の一致 / 訂正マーカー）で行い、意味判断と実際の提案は
 // LLM に委ねる（本当にハルシネーションか・同じ誤りの再発かは LLM が確定する）。
 //
@@ -71,47 +67,71 @@ try {
   const file = path.join(dir, `${tag}.json`);
 
   // 既存状態を読む（壊れていれば初期化）。keys=依頼の反復、corrections=訂正イベント、
-  // token_warned_at=トークン消費警告を最後に出した時刻（クールダウン用）。
+  // started_at=セッション初回プロンプト時刻、continue_warned_*=継続確認のクールダウン基準。
   let keys = [];
   let corrections = [];
-  let tokenWarnedAt = 0;
+  let startedAt = 0; // セッション初回プロンプトの時刻（継続確認の経過時間の基準）
+  let continueWarnedAt = 0; // 継続確認を最後に出した時刻（時間軸の再アーム基準）
+  let continueWarnedTokens = 0; // 継続確認を最後に出した時点のセッション消費（トークン軸の再アーム基準）
   try {
     const j = JSON.parse(fs.readFileSync(file, "utf8"));
     if (j && Array.isArray(j.keys)) keys = j.keys.filter((k) => typeof k === "string");
     if (j && Array.isArray(j.corrections)) {
       corrections = j.corrections.filter((c) => c && typeof c.key === "string");
     }
-    if (j && Number.isFinite(Number(j.token_warned_at))) tokenWarnedAt = Number(j.token_warned_at);
+    if (j && Number.isFinite(Number(j.started_at))) startedAt = Number(j.started_at);
+    if (j && Number.isFinite(Number(j.continue_warned_at))) continueWarnedAt = Number(j.continue_warned_at);
+    if (j && Number.isFinite(Number(j.continue_warned_tokens))) continueWarnedTokens = Number(j.continue_warned_tokens);
   } catch {
     /* 無ければ新規 */
   }
+  // セッション初回プロンプトで開始時刻を刻む（以降は保持）。継続確認の経過時間の基準。
+  if (!startedAt) startedAt = Date.now();
 
-  // (3) 直近 5 時間のトークン消費チェック（依頼内容に関係なく毎送信みる。クールダウン付き）。
-  //     token-usage.js は Stop 時にしか書かないため値は 1 応答分遅れる（近似で十分）。
-  let tokenWarnBlock = "";
+  // (3) 継続確認: セッションが長時間（既定 30 分以上）または多消費（API 換算しきい値以上）に
+  //     達していたら、本格着手の前に「このまま続けてよいか」を AskUserQuestion で確認させる。
+  //     時間軸・トークン軸それぞれにクールダウン（再アーム基準）を持たせ、しきい値ごとに
+  //     最大 1 回だけ確認する（毎送信は鳴らさない）。検知は決定的、確認の実行は LLM に委ねる。
+  let continueBlock = "";
   try {
-    const { sumRecentLimitEquiv, readTokenWarnThreshold, FIVE_HOURS_MS } = require(path.join(__dirname, "tokens-util.js"));
-    const threshold = readTokenWarnThreshold(path.join(home, ".belta"));
+    const { readContinueThresholds, readSessionBillable } = require(path.join(__dirname, "tokens-util.js"));
+    const { minutes, tokens } = readContinueThresholds(path.join(home, ".belta"));
     const now = Date.now();
-    if (threshold > 0 && now - tokenWarnedAt > FIVE_HOURS_MS) {
-      const recent = sumRecentLimitEquiv(path.join(home, ".belta", "audit", "tokens"), FIVE_HOURS_MS, now);
-      if (recent >= threshold) {
-        tokenWarnedAt = now; // クールダウン開始（下の atomic write で永続化）
-        const fmt = (n) => Number(n).toLocaleString("en-US");
-        tokenWarnBlock = [
-          "【Belta トークン消費警告（直近5時間）】",
-          "",
-          `token-usage 記録上、直近 5 時間の利用制限カウント相当の消費が推計 ${fmt(recent)} トークンに達しています（警告しきい値 ${fmt(threshold)}。~/.belta/config.yaml の token_5h_warn で変更、0 で無効）。Claude の利用制限（5 時間ローリング窓）に近づいている可能性があります。`,
-          "",
-          "今回の依頼への応答の冒頭で、この旨を利用者へ一言知らせてください（消費の内訳は /usage で見られることも添える）。そのうえで省トークンの作法を意識してください: 大きなファイルの全文 Read を避ける・同じ調査を繰り返さない・大規模走査の前に対象を絞る。",
-        ].join("\n");
+    // token-usage.js（Stop）は応答終了時にしか書かないため値は 1 応答分遅れる（近似で十分）。
+    const sessionBillable = readSessionBillable(path.join(home, ".belta", "audit", "tokens"), sessionId);
+    const reasons = [];
+    const fmt = (n) => Number(n).toLocaleString("en-US");
+
+    if (minutes > 0) {
+      const base = continueWarnedAt || startedAt; // 前回確認 → そこから、未確認 → 開始から
+      if (now - base >= minutes * 60000) {
+        reasons.push(`セッション開始から約 ${Math.floor((now - startedAt) / 60000)} 分が経過しています`);
       }
+    }
+    if (tokens > 0 && sessionBillable > 0 && sessionBillable - continueWarnedTokens >= tokens) {
+      reasons.push(
+        `このセッションの推計消費が API 換算 ${fmt(sessionBillable)} トークンに達しています（前回確認から +${fmt(sessionBillable - continueWarnedTokens)}）`
+      );
+    }
+
+    if (reasons.length) {
+      continueWarnedAt = now; // 両軸のクールダウンを更新（次のしきい値まで再確認しない）
+      continueWarnedTokens = sessionBillable;
+      continueBlock = [
+        "【BELTA 継続確認（長時間 / 多消費）】",
+        "",
+        "このセッションは次の状況に達しています:",
+        ...reasons.map((r) => `・${r}`),
+        "",
+        "長時間の連続作業や大きなトークン消費は、利用制限（5 時間ローリング窓）の圧迫や、意図しない作業の継続につながります。今回の依頼に本格的に着手する前に、AskUserQuestion で『このまま処理を続けてよいか』を一度だけ利用者へ確認してください（例: 続行 / 一区切りして要約だけ / 中断）。",
+        "利用者が『続行』を選べばそのまま進めてよく、以降このセッションでは設定したしきい値ごとに再度確認します。消費の内訳は /usage で確認できる旨も添えてください。しきい値は ~/.belta/config.yaml の continue_confirm_minutes（分）/ continue_confirm_tokens（API 換算トークン）で変更でき、0 で無効化できます。",
+      ].join("\n");
     }
   } catch {
     /* tokens-util 不在・記録なし等は黙って素通り（fail-open） */
   }
 
-  if (!key && !isCorrection && !tokenWarnBlock) process.exit(0); // どの検知対象でもない
+  if (!key && !isCorrection && !continueBlock) process.exit(0); // どの検知対象でもない
 
   // 今回の送信を 1 件だけ追記（1 送信 = 1 件。二重計上しない）。
   if (key) {
@@ -130,7 +150,17 @@ try {
   // atomic write。
   try {
     const tmp = file + ".tmp";
-    fs.writeFileSync(tmp, JSON.stringify({ keys, corrections, token_warned_at: tokenWarnedAt }), "utf8");
+    fs.writeFileSync(
+      tmp,
+      JSON.stringify({
+        keys,
+        corrections,
+        started_at: startedAt,
+        continue_warned_at: continueWarnedAt,
+        continue_warned_tokens: continueWarnedTokens,
+      }),
+      "utf8"
+    );
     fs.renameSync(tmp, file);
   } catch {
     /* 書けなくても検知は続行（下のカウントは在メモリの値を使う） */
@@ -152,7 +182,9 @@ try {
   }
 
   const blocks = [];
-  if (tokenWarnBlock) blocks.push(tokenWarnBlock);
+
+  // (3) 継続確認（長時間 / 多消費）。上で組み立て済みなら先頭に置いて目立たせる。
+  if (continueBlock) blocks.push(continueBlock);
 
   // (1) 依頼の反復（既存）: 同一キーが 2 回以上 → パーソナライズ提案。
   if (key) {
@@ -161,7 +193,7 @@ try {
       const req = prompt.replace(/\s+/g, " ").trim().slice(0, 80);
       blocks.push(
         [
-          "【Belta パーソナライズ検知（同一セッション内の反復）】",
+          "【BELTA パーソナライズ検知（同一セッション内の反復）】",
           "",
           `利用者はこのセッションで同じ趣旨の依頼「${req}」を ${total} 回出しています（同じ作業を反復させている可能性が高い）。`,
           "この依頼を処理する前後で、agent-learning / rule-learning / skill-suggestion / skill-authoring の消去法ゲートに従い、専用エージェント化・自動ルール化などのパーソナライズを AskUserQuestion で提案するか判断してください。あわせて、この依頼が既存の部署ロール（~/.belta/roles/）でカバーされない部署領域なら新しいロールの追加を、既存ロールの領域なら典型業務・成果物の型のブラッシュアップを提案するか検討してください（workflow スキルの references/roles.md「ロールの提案と成長」）。",
@@ -183,7 +215,7 @@ try {
         : `このセッションで事実誤りの指摘が ${corrections.length} 回出ています（直近の指摘:「${corr}」）。`;
     blocks.push(
       [
-        "【Belta 事実訂正メモリ検知（ハルシネーション再発の可能性）】",
+        "【BELTA 事実訂正メモリ検知（ハルシネーション再発の可能性）】",
         "",
         recurrence,
         "まず ~/.belta/memory/MEMORY.md（あれば）と直前までの会話を確認し、あなたが同じ事実誤り（ハルシネーション）を 2 回以上犯していないか確かめてください。",

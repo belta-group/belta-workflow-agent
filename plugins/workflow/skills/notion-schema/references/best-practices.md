@@ -1,6 +1,6 @@
 # Notion DB 設計ベストプラクティス（全パターン共通）
 
-全パターン共通の設計原則とアンチパターン。Belta では「中央基盤に全員を合わせて失敗した」反省から、**過剰設計を避け、後から拡張できる最小構造**を是とする。各パターンの具体は [patterns/tasks.md](patterns/tasks.md) / [patterns/meetings.md](patterns/meetings.md) / [patterns/knowledge.md](patterns/knowledge.md)、型構文は [notion-property-reference.md](notion-property-reference.md) を参照。
+全パターン共通の設計原則とアンチパターン。BELTA では「中央基盤に全員を合わせて失敗した」反省から、**過剰設計を避け、後から拡張できる最小構造**を是とする。各パターンの具体は [patterns/tasks.md](patterns/tasks.md) / [patterns/meetings.md](patterns/meetings.md) / [patterns/knowledge.md](patterns/knowledge.md)、型構文は [notion-property-reference.md](notion-property-reference.md) を参照。
 
 ## 1. 正規化原則（select / multi-select / status に寄せる）
 

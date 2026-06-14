@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Belta workflow plugin — 初回セットアップ自動起動 + グローバル誤有効化の警告（SessionStart）
+// BELTA workflow plugin — 初回セットアップ自動起動 + グローバル誤有効化の警告（SessionStart）
 //
 // このフックは SessionStart で発火し、2 つの追加コンテキストを必要に応じて注入する。
 //
@@ -90,7 +90,7 @@ try {
   if (!onboarded) {
     contexts.push(
       [
-        "【Belta ワークフローエージェント 初回セットアップ】",
+        "【BELTA ワークフローエージェント 初回セットアップ】",
         "",
         "この環境ではまだ初回セットアップ（~/.belta/.onboarded）が完了していません。ユーザーへの応答の冒頭で、これからセットアップを行う旨を一言伝えたうえで、/workflow-setup コマンドの手順（plugins/workflow/commands/workflow-setup.md）に従い、初回オンボーディングを開始してください。",
         "",
@@ -162,7 +162,7 @@ try {
       );
       contexts.push(
         [
-          "【Belta パーソナライズ検知（セッションまたぎの反復）】",
+          "【BELTA パーソナライズ検知（セッションまたぎの反復）】",
           "",
           "直近の記録（~/.belta/notes/）で、同じ趣旨の依頼が別々のセッションで繰り返されています:",
           ...lines,
@@ -217,7 +217,7 @@ try {
       );
       contexts.push(
         [
-          "【Belta 事実訂正メモリ検知（セッションまたぎのハルシネーション再発）】",
+          "【BELTA 事実訂正メモリ検知（セッションまたぎのハルシネーション再発）】",
           "",
           "過去の記録で、同じ趣旨の事実誤りの指摘（訂正）が別々のセッションで繰り返されています:",
           ...lines,
@@ -254,8 +254,8 @@ try {
       } else if (prevVer !== current) {
         const upgraded = compareVersions(current, prevVer) > 0;
         const headline = upgraded
-          ? `Belta ワークフローエージェントが v${prevVer} → v${current} に更新されました。`
-          : `Belta ワークフローエージェントのバージョンが変わりました（v${prevVer} → v${current}）。`;
+          ? `BELTA ワークフローエージェントが v${prevVer} → v${current} に更新されました。`
+          : `BELTA ワークフローエージェントのバージョンが変わりました（v${prevVer} → v${current}）。`;
         // (1) 利用者へ確実に表示する：top-level systemMessage（LLM 任せにしない）。
         //     additionalContext は LLM にしか渡らず、最初の操作が slash command だと
         //     応答に現れないことがある（実機で取りこぼしを確認）。人間向けの通知は
@@ -266,7 +266,7 @@ try {
         // (2) LLM にも文脈として渡す（応答に自然に一言添える・再実行を促す補助）。
         contexts.push(
           [
-            "【Belta ワークフローエージェント 更新通知】",
+            "【BELTA ワークフローエージェント 更新通知】",
             "",
             headline,
             "",
@@ -283,41 +283,7 @@ try {
     /* マニフェスト読めない・書けない等は黙って素通り（fail-open） */
   }
 
-  // (F) 5 時間ローリング消費の警告:
-  //     token-usage.js（Stop）が残した記録の slots を横断し、直近 5 時間の
-  //     「利用制限カウント相当（limit_equiv）」消費が config.yaml の token_5h_warn
-  //     （既定 70000、0 以下で無効）を超えていれば、利用者へ systemMessage で直接知らせ、
-  //     LLM へも省トークンの作法を additionalContext で渡す。Claude の利用制限
-  //     （Pro/Max の 5 時間ローリング窓）に「一瞬で当たる」事故の予防が目的。
-  //     ※ ここで数えるのは本エージェントのセッション分だけで、公式の制限カウント
-  //       そのものではない（他プロジェクトや claude.ai 利用分は見えない）。
-  try {
-    const { sumRecentLimitEquiv, readTokenWarnThreshold, FIVE_HOURS_MS } = require(path.join(__dirname, "tokens-util.js"));
-    const beltaDir = path.join(home, ".belta");
-    const threshold = readTokenWarnThreshold(beltaDir);
-    if (threshold > 0) {
-      const recent = sumRecentLimitEquiv(path.join(beltaDir, "audit", "tokens"), FIVE_HOURS_MS);
-      if (recent >= threshold) {
-        const fmt = (n) => Number(n).toLocaleString("en-US");
-        systemMessages.push(
-          `⚠️ 直近5時間のトークン消費が多めです（このエージェント分の推計 ${fmt(recent)}、目安しきい値 ${fmt(threshold)}）。Claude の利用制限（5時間ローリング窓）に近づいている可能性があります。/usage で内訳を確認できます（しきい値は ~/.belta/config.yaml の token_5h_warn で変更、0 で警告オフ）。`
-        );
-        contexts.push(
-          [
-            "【Belta トークン消費警告（直近5時間）】",
-            "",
-            `token-usage 記録上、直近 5 時間の利用制限カウント相当の消費が推計 ${fmt(recent)} トークンに達しています（警告しきい値 ${fmt(threshold)}）。利用者には systemMessage で表示済みです。`,
-            "",
-            "本セッションでは省トークンの作法を意識してください: (1) 大きなファイルの全文 Read を避け必要範囲だけ読む、(2) 同じ調査の繰り返しを避け既知の結論を再利用する、(3) 探索的な大規模走査はまず対象を絞る。利用者がトークン消費の内訳を知りたがったら /usage（token-usage スキル）を案内してください。",
-          ].join("\n")
-        );
-      }
-    }
-  } catch {
-    /* tokens-util 不在・記録なし等は黙って素通り（fail-open） */
-  }
-
-  // (G) ゴール再開検知:
+  // (F) ゴール再開検知:
   //     goal スキルが ~/.belta/goals/ に永続化した進行中ゴール（status: active）が
   //     あれば、進捗・次のステップ・停滞（stale）を注入し、再開を一言提案させる。
   //     検知は決定的（goal-util.js の走査。goal-scan.js と同じパーサで判定基準を揃える）。
@@ -337,7 +303,7 @@ try {
       });
       contexts.push(
         [
-          "【Belta ゴール再開検知（進行中のゴールがあります）】",
+          "【BELTA ゴール再開検知（進行中のゴールがあります）】",
           "",
           `~/.belta/goals/ に進行中（status: active）のゴールが ${active.length} 件あります:`,
           ...lines,

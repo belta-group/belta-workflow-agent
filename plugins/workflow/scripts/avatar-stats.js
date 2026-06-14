@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Belta workflow plugin — 育成アバター 集計エンジン（決定的）
+// BELTA workflow plugin — 育成アバター 集計エンジン（決定的）
 //
 // `~/.belta/` 配下の活動データ（notes / audit/tokens / audit/repeat / rules /
 // agents / skills / user-model / memory）を決定的に走査し、レベル・XP・6軸ステータス・

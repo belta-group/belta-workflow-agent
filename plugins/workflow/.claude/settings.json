@@ -1,5 +1,5 @@
 {
-  "$comment": "Belta workflow plugin — permission allowlist（Day 7）。権威ソース。scripts/apply-permissions.js がこの permissions を利用者の settings.json にマージする。precedence は deny > ask > allow。どのルールにも合致しない操作は既定で ask（確認プロンプト）になる。MCP サーバ接頭辞（mcp__claude_ai_<Service>__）は claude.ai Connector の登録名に依存する。実環境で /mcp の実名と異なる場合は接頭辞を調整すること。",
+  "$comment": "BELTA workflow plugin — permission allowlist（Day 7）。権威ソース。scripts/apply-permissions.js がこの permissions を利用者の settings.json にマージする。precedence は deny > ask > allow。どのルールにも合致しない操作は既定で ask（確認プロンプト）になる。MCP サーバ接頭辞（mcp__claude_ai_<Service>__）は claude.ai Connector の登録名に依存する。実環境で /mcp の実名と異なる場合は接頭辞を調整すること。",
   "permissions": {
     "allow": [
       "Read",

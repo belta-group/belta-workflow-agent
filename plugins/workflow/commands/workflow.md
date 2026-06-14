@@ -1,16 +1,8 @@
 ---
-description: Belta ワークフローエージェントを起動する。初回は 5 問オンボーディング、以降は発話から Notion / Slack / GitHub / Google Drive へ自動分岐。
-model: inherit
+description: BELTA ワークフローエージェントを起動する。初回は 5 問オンボーディング、以降は発話から Notion / Slack / GitHub / Google Drive へ自動分岐。
 ---
 
-<!--
-model: inherit — 運営の窓口かつ分岐の頭脳。任意発話の意図解釈・複数ツール連携・
-機密度に応じた判断を担うため、セッションのモデル（通常 Opus）を継承して品質を落とさない。
-コスト最適化のためにモデルを下げてよいのは定型処理に閉じたコマンド（例: /workflow-setup）側。
--->
-
-
-# /workflow — Belta ワークフローエージェント
+# /workflow — BELTA ワークフローエージェント
 
 `workflow` スキル（`skills/workflow/SKILL.md`）を起動する入口コマンド。
 

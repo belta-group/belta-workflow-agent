@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Belta workflow plugin — 専用フォルダ（~/my-agent）の作成 + ローカル有効化
+// BELTA workflow plugin — 専用フォルダ（~/my-agent）の作成 + ローカル有効化
 //
 // 本プラグインは「ホーム直下の専用フォルダ限定（ローカルスコープ）でだけ発火する」
 // 運用を既定とする。グローバル（ユーザースコープ）有効化は、業務と無関係なあらゆる
@@ -245,7 +245,7 @@ try {
   const gitignorePath = path.join(folder, ".gitignore");
   if (!fs.existsSync(gitignorePath)) {
     const body = [
-      "# Belta workflow agent — このフォルダ内の Claude Code 個人設定/生成物は共有しない",
+      "# BELTA workflow agent — このフォルダ内の Claude Code 個人設定/生成物は共有しない",
       ".claude/settings.local.json",
       ".claude/agents/",
       ".claude/skills/",

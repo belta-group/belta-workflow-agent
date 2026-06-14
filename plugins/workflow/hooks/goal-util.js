@@ -1,5 +1,5 @@
 //
-// Belta workflow plugin — ゴールファイル共有パーサ（goal-scan.js / session-start.js 共用）
+// BELTA workflow plugin — ゴールファイル共有パーサ（goal-scan.js / session-start.js 共用）
 //
 // `~/.belta/goals/<slug>.md`（goal スキルの真実のソース）を決定的に解析する。
 // 書式の正本は skills/goal/references/goal-format.md。要点:

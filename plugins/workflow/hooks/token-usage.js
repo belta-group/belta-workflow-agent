@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Belta workflow plugin — トークン使用量ログフック（Stop）
+// BELTA workflow plugin — トークン使用量ログフック（Stop）
 //
 // メインエージェントの応答が終わるたびに発火し、トランスクリプト（JSONL）から
 // 各 assistant ターンの usage（input / output / cache_creation / cache_read）を

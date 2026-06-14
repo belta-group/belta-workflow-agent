@@ -1,5 +1,5 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# Belta workflow agent — gitleaks 設定（Git 層の機密漏洩防止）
+# BELTA workflow agent — gitleaks 設定（Git 層の機密漏洩防止）
 #
 # 役割: コミット／PR に混入したマイナンバー・クレジットカード・メールアドレス
 #       一括・パスワードリテラル・機密ラベル・社内ドメインを CI で検出して fail
@@ -14,7 +14,7 @@
 #       既定ルール（AWS / GCP / Slack token / Generic API Key 等）を取り込む。
 # ─────────────────────────────────────────────────────────────────────────────
 
-title = "Belta workflow agent gitleaks config"
+title = "BELTA workflow agent gitleaks config"
 
 [extend]
 # gitleaks 既定ルール（標準 API キーパターン）を継承したうえで以下を追加する。

@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Belta workflow agent — macOS ダブルクリック・ランチャー
+# BELTA workflow agent — macOS ダブルクリック・ランチャー
 #
 # このファイルと同じフォルダにある bootstrap.js を Node.js で実行するだけの薄いラッパー。
 # 実ロジックは bootstrap.js（Node 単一実装。cross-platform.md 準拠）に集約している。

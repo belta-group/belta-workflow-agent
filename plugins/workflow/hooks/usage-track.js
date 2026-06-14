@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Belta workflow plugin — 使用状況の計測（UserPromptSubmit / PostToolUse）
+// BELTA workflow plugin — 使用状況の計測（UserPromptSubmit / PostToolUse）
 //
 // 育成ダッシュボードの「よく使うコマンド」「エージェント使用比率」を出すための
 // 決定的な下支え。1 つのスクリプトを 2 イベントに登録し、stdin の hook_event_name

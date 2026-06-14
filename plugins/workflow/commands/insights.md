@@ -1,14 +1,7 @@
 ---
 description: 過去の notes（日次ログ・トピックノート）を横断して振り返り（インサイト）を出す。直近何をしていたか・繰り返しているテーマ・抜け漏れを要約。
 argument-hint: "[--days N] [--topic <語>]"
-model: inherit
 ---
-
-<!--
-model: inherit — notes の意味的なテーマ抽出・要約・抜け漏れ推定を行うため、
-セッションのモデル（通常 Opus）を継承して要約品質を落とさない。
-走査（材料抽出）は scripts/notes-scan.js が決定的に担い、要約は LLM が行う二層構造。
--->
 
 # /insights — notes 横断の振り返り
 

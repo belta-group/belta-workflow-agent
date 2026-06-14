@@ -1,6 +1,6 @@
 @echo off
 rem
-rem Belta workflow agent - Windows ダブルクリック・ランチャー
+rem BELTA workflow agent - Windows ダブルクリック・ランチャー
 rem
 rem このファイルと同じフォルダにある bootstrap.js を Node.js で実行するだけの薄いラッパー。
 rem 実ロジックは bootstrap.js（Node 単一実装。cross-platform.md 準拠）に集約している。

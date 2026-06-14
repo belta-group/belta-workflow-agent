@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Belta workflow plugin — トークン使用量 集計スクリプト（Phase 0 実測データ用）
+// BELTA workflow plugin — トークン使用量 集計スクリプト（Phase 0 実測データ用）
 //
 // hooks/token-usage.js が書き出したセッション単位ファイル
 // （<home>/.belta/audit/tokens/<session_id>.json）を走査して合算し、

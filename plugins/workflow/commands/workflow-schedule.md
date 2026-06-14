@@ -1,14 +1,7 @@
 ---
 description: 定期実行（毎朝のTODO要約・週次の振り返りなど）を登録/一覧/削除する。自然言語で頻度を指定でき、無人で動く秘書の定期ジョブを管理。
 argument-hint: "[登録したい定期タスクの説明 / list / remove]"
-model: inherit
 ---
-
-<!--
-model: inherit — 自己完結ジョブ本文の生成（独立セッションで動く完全な手順を書く）に
-判断力が要るため、セッションのモデルを継承する。cron 生成・検証・列挙という決定的部分は
-scripts/schedule-spec.js が担い、登録の実体は mcp__scheduled-tasks に委譲する二層構造。
--->
 
 # /workflow-schedule — 定期実行の登録・管理
 

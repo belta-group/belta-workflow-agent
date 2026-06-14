@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Belta workflow agent — スタンドアロン・ブートストラップ・インストーラー（Mac / Windows 両対応）
+// BELTA workflow agent — スタンドアロン・ブートストラップ・インストーラー（Mac / Windows 両対応）
 //
 // 「プラグイン導入前」に単体で動く自己完結インストーラー。Mac の install.command /
 // Windows の install.bat（ダブルクリック起動するランチャー）から呼ばれる想定。
@@ -58,7 +58,7 @@ for (let i = 0; i < argv.length; i++) {
   else if (a === "-h" || a === "--help") {
     process.stdout.write(
       [
-        "Belta workflow agent ブートストラップ・インストーラー",
+        "BELTA workflow agent ブートストラップ・インストーラー",
         "  node bootstrap.js [--email system-bot@belta.co.jp] [--base <dir>]",
         "                    [--ref <branch|tag>] [--repo <owner/repo>]",
         "                    [--no-claude] [--no-git] [--dry-run] [--max-attempts <n>]",
@@ -205,7 +205,7 @@ function writeGitignore(folder) {
   const p = path.join(folder, ".gitignore");
   if (fs.existsSync(p)) return;
   const body = [
-    "# Belta workflow agent — このフォルダ内の Claude Code 個人設定/生成物は共有しない",
+    "# BELTA workflow agent — このフォルダ内の Claude Code 個人設定/生成物は共有しない",
     ".claude/settings.local.json",
     ".claude/agents/",
     ".claude/skills/",
@@ -215,7 +215,7 @@ function writeGitignore(folder) {
 }
 
 // ---- ~/.belta の最小初期化（足りない既定は belta-init.js が後で補完） ---------
-function initBelta(email, folder) {
+function initBELTA(email, folder) {
   if (dryRun) return;
   fs.mkdirSync(beltaDir, { recursive: true });
   for (const sub of ["notes", "inbox", "todos", "memory"]) {
@@ -260,7 +260,7 @@ function parseFlatYaml(text) {
 }
 function serializeFlatYaml(map) {
   const lines = [
-    "# Belta config（machine-readable）。bootstrap が最小値を記録。残りは belta-init.js が補完。",
+    "# BELTA config（machine-readable）。bootstrap が最小値を記録。残りは belta-init.js が補完。",
   ];
   for (const k of Object.keys(map)) {
     const s = String(map[k]);
@@ -599,7 +599,7 @@ function ensureClaudeOnPath() {
     const cur = safeRead(rc);
     if (/\.local\/bin/.test(cur)) return { changed: false, onPath: false, dir };
     const prefix = cur === "" || cur.endsWith("\n") ? cur : cur + "\n";
-    const body = prefix + '\n# Added by Belta installer — Claude CLI\nexport PATH="$HOME/.local/bin:$PATH"\n';
+    const body = prefix + '\n# Added by BELTA installer — Claude CLI\nexport PATH="$HOME/.local/bin:$PATH"\n';
     atomicWrite(rc, body);
     return { changed: true, onPath: false, dir };
   } catch (e) {
@@ -736,7 +736,7 @@ function printClaudeInstalledNextSteps(folder, method, pathInfo) {
 
 // ---- メイン ------------------------------------------------------------------
 (async () => {
-  process.stdout.write("Belta workflow agent インストーラー\n\n");
+  process.stdout.write("BELTA workflow agent インストーラー\n\n");
   const { email, localPart } = await resolveEmail();
 
   const folderBase = toFolderBase(localPart);
@@ -754,7 +754,7 @@ function printClaudeInstalledNextSteps(folder, method, pathInfo) {
   process.stdout.write("[bootstrap] (1) 専用フォルダ + ~/.belta 初期化 …\n");
   try {
     writeGitignore(folder);
-    initBelta(email, folder);
+    initBELTA(email, folder);
   } catch (e) {
     warn(`下ごしらえの一部に失敗しました（継続します）。${String((e && e.message) || e)}`);
   }

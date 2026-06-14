@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Belta workflow plugin — 反復検知の共有ユーティリティ
+// BELTA workflow plugin — 反復検知の共有ユーティリティ
 //
 // SessionStart（セッションまたぎの反復）と UserPromptSubmit（同一セッション内の反復）の
 // 両フックから使う、決定的な正規化・抽出・notes パースをまとめる。

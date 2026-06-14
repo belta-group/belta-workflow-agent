@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Belta workflow plugin — トークン消費の共有ユーティリティ
+// BELTA workflow plugin — トークン消費の共有ユーティリティ
 //
 // token-usage.js（Stop）が書くセッション単位レコード（~/.belta/audit/tokens/*.json）を
 // 読み側で扱う共通ロジック。session-start.js（SessionStart 警告）・repeat-detect.js
@@ -24,6 +24,11 @@ const os = require("os");
 
 const DEFAULT_5H_WARN = 70000;
 const FIVE_HOURS_MS = 5 * 60 * 60 * 1000;
+
+// 継続確認（長時間 / 多消費でユーザーへ「続けてよいか」を確認）の既定しきい値。
+// いずれも config.yaml で変更でき、0 で無効。
+const DEFAULT_CONTINUE_MINUTES = 30; // セッション初回プロンプトからの経過（分）
+const DEFAULT_CONTINUE_TOKENS = 150000; // セッションの billable_token_estimate（API 換算・キャッシュ割引後）
 
 function resolveHome() {
   return process.env.HOME || process.env.USERPROFILE || os.homedir() || "";
@@ -73,35 +78,74 @@ function sumRecentLimitEquiv(tokensDir, windowMs, now) {
   return Math.round(sum);
 }
 
-// config.yaml の token_5h_warn を読む（flat YAML・依存なし）。0 以下は「警告無効」として
-// 0 を返す。未設定・数値化できないときは既定値。
-function readTokenWarnThreshold(beltaDir) {
+// config.yaml（flat YAML・依存なし）から整数キーを読む汎用ヘルパー。
+//   - キーが無い・config が読めない → def（既定値）。
+//   - 値があるが数値化できない → def。
+//   - 0 以下 → 0（呼び出し側で「無効」として扱う）。
+function readConfigInt(beltaDir, key, def) {
   const base = beltaDir || path.join(resolveHome(), ".belta");
   let text = "";
   try {
     text = fs.readFileSync(path.join(base, "config.yaml"), "utf8");
   } catch {
-    return DEFAULT_5H_WARN;
+    return def;
   }
   for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.trim();
     if (!line || line.startsWith("#")) continue;
     const idx = line.indexOf(":");
     if (idx < 0) continue;
-    if (line.slice(0, idx).trim() !== "token_5h_warn") continue;
+    if (line.slice(0, idx).trim() !== key) continue;
     let val = line.slice(idx + 1).trim();
     if (val.length >= 2 && val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1);
     const n = parseInt(val, 10);
-    if (Number.isFinite(n)) return n > 0 ? n : 0; // 0 以下 = 警告無効
-    return DEFAULT_5H_WARN;
+    if (Number.isFinite(n)) return n > 0 ? n : 0; // 0 以下 = 無効
+    return def;
   }
-  return DEFAULT_5H_WARN;
+  return def;
+}
+
+// config.yaml の token_5h_warn を読む。0 以下は「警告無効」として 0 を返す。
+function readTokenWarnThreshold(beltaDir) {
+  return readConfigInt(beltaDir, "token_5h_warn", DEFAULT_5H_WARN);
+}
+
+// 継続確認のしきい値を読む。戻り値: { minutes, tokens }（どちらも 0 なら当該軸は無効）。
+function readContinueThresholds(beltaDir) {
+  return {
+    minutes: readConfigInt(beltaDir, "continue_confirm_minutes", DEFAULT_CONTINUE_MINUTES),
+    tokens: readConfigInt(beltaDir, "continue_confirm_tokens", DEFAULT_CONTINUE_TOKENS),
+  };
+}
+
+// 当該セッションの「API 換算消費（billable_token_estimate）」を読む。
+// token-usage.js（Stop）が書く <tokensDir>/<session_id>.json から取得する。
+// セッションの実消費を一番素直に表す数値（キャッシュ読取を 0.1 掛けに割り引いた API 換算
+// トークン数。limit_equiv はキャッシュ読取も満額で数えるため長いセッションで過大に膨らむ）。
+// 記録が無い・読めない・未集計（Stop 前）は 0。
+function readSessionBillable(tokensDir, sessionId) {
+  const dir = tokensDir || defaultTokensDir();
+  const sid = String(sessionId || "").trim();
+  if (!sid) return 0;
+  const safeName = sid.replace(/[^A-Za-z0-9._-]/g, "_");
+  try {
+    const rec = JSON.parse(fs.readFileSync(path.join(dir, `${safeName}.json`), "utf8"));
+    const n = Number(rec && rec.billable_token_estimate);
+    return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+  } catch {
+    return 0;
+  }
 }
 
 module.exports = {
   sumRecentLimitEquiv,
   readTokenWarnThreshold,
+  readConfigInt,
+  readContinueThresholds,
+  readSessionBillable,
   defaultTokensDir,
   DEFAULT_5H_WARN,
+  DEFAULT_CONTINUE_MINUTES,
+  DEFAULT_CONTINUE_TOKENS,
   FIVE_HOURS_MS,
 };

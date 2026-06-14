@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Belta workflow plugin — ~/.belta/ 初期化 + config.yaml 管理（Day 8）
+// BELTA workflow plugin — ~/.belta/ 初期化 + config.yaml 管理（Day 8）
 //
 // ホーム配下の個人データ領域 `~/.belta/` を初期化し、機械可読設定 `config.yaml` を
 // atomic write + 0o600（POSIX）で管理する。gstack-main の config.ts のパターン
@@ -55,7 +55,7 @@ const configPath = path.join(beltaDir, "config.yaml");
 // 値はすべてスカラ。true/false と整数はそのまま、それ以外は二重引用符で囲む。
 function serialize(map, order) {
   const keys = order.filter((k) => k in map).concat(Object.keys(map).filter((k) => !order.includes(k)));
-  const lines = ["# Belta config（machine-readable）。手で編集するより belta-init.js set を推奨。"];
+  const lines = ["# BELTA config（machine-readable）。手で編集するより belta-init.js set を推奨。"];
   for (const k of keys) {
     lines.push(`${k}: ${formatValue(map[k])}`);
   }
@@ -102,6 +102,9 @@ const CONFIG_ORDER = [
   "insights_default_days",
   "notes_retention_days",
   "token_5h_warn",
+  "continue_confirm_minutes",
+  "continue_confirm_tokens",
+  "explain_llm_fallback",
 ];
 
 function readConfig() {
@@ -168,6 +171,19 @@ function doInit() {
     // 超えると session-start.js / repeat-detect.js が警告を注入する。0 で警告オフ。
     // 既定 70000 は Max 5x プランの 5 時間枠の目安（~88k）の約 8 割。
     token_5h_warn: existing.token_5h_warn || "70000",
+    // 継続確認（repeat-detect.js）。セッションが長時間・多消費になったとき、本格着手の前に
+    // 「このまま続けてよいか」を AskUserQuestion で確認させる。しきい値ごとに最大 1 回。
+    // continue_confirm_minutes: セッション開始からの経過分（既定 30、0 で無効）。
+    continue_confirm_minutes: existing.continue_confirm_minutes || "30",
+    // continue_confirm_tokens: セッションの推計消費（API 換算 billable_token_estimate。
+    // キャッシュ読取を 0.1 掛けに割り引いた実消費寄りの値）のしきい値（既定 150000、0 で無効）。
+    continue_confirm_tokens: existing.continue_confirm_tokens || "150000",
+    // 許可ダイアログの「やさしい説明」の LLM フォールバック（pre-tool-use.js /
+    // explain-util.js）。型分類で当たらない未知の書き込み系コマンドを claude -p
+    // （haiku）で 1 文に翻訳する。既定 true。OAuth を引き継げない環境（例: デスクトップ
+    // アプリ経由）では claude -p が 401 になるため、サーキットブレーカーで 30 分に 1 回
+    // までに自動抑制し、ふだんは決定的な型テンプレートで即応答する。false で完全無効化。
+    explain_llm_fallback: existing.explain_llm_fallback || "true",
   };
   // 余分な既存キーも保持
   for (const k of Object.keys(existing)) if (!(k in merged)) merged[k] = existing[k];

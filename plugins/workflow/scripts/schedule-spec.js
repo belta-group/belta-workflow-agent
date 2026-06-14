@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Belta workflow plugin — スケジューラ補助（cron 生成・検証・belta ジョブ列挙）
+// BELTA workflow plugin — スケジューラ補助（cron 生成・検証・belta ジョブ列挙）
 //
 // 定期実行の実体は `mcp__scheduled-tasks`（または CronCreate）に委譲する。本スクリプトは
 // その登録を助ける **決定的な部分** だけを担う：

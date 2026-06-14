@@ -59,7 +59,7 @@ description: >
 
 ### Step 2-a: 承認 → 生成 + 記録
 
-1. [references/agent-template.md](references/agent-template.md) の frontmatter 雛形と **モデル選択ポリシー（haiku / sonnet / inherit の 3 段）** に従い、`model` を業務カテゴリで出し分けて `<agent_home>/.claude/agents/<slug>.md` を **Write ツールで生成**する（`<agent_home>` は上記の方法で解決。専用フォルダ内なら相対 `.claude/agents/<slug>.md` でもよい）。
+1. [references/agent-template.md](references/agent-template.md) の frontmatter 雛形に従い、`<agent_home>/.claude/agents/<slug>.md` を **Write ツールで生成**する（`<agent_home>` は上記の方法で解決。専用フォルダ内なら相対 `.claude/agents/<slug>.md` でもよい）。`model` フィールドは置かず、セッションのモデルをそのまま継承させる。
    - `tools` は Step 1 で絞った allow サブセットのみ。
    - `source_notes` に検知元の `notes/YYYY-MM-DD.md`（2 件以上）を記録する。
    - symlink/コピーは不要。専用フォルダの `.claude/agents/` に置けば、そのフォルダのセッションで自動的に `Agent` ツールへ載る。
@@ -112,14 +112,14 @@ description: >
 ## セキュリティ境界
 
 - 生成 subagent の `tools` は親 `.claude/settings.json` の `allow` の **部分集合のみ**。`ask` / `deny` 相当の書き込み・破壊系を直接渡さない（多段階権限階層は Phase -1 では実装しない）。
-- 親の PII 検知フック（`hooks/pre-tool-use.js`）は **subagent 経由でも発火する**ことを前提にする。モデルや権限の選択は防御を肩代わりしない（[security-policies.md](../workflow/references/security-policies.md) §3）。
+- 親の PII 検知フック（`hooks/pre-tool-use.js`）は **subagent 経由でも発火する**ことを前提にする。権限の選択は防御を肩代わりしない（[security-policies.md](../workflow/references/security-policies.md) §3）。
 - 生成 subagent がさらに子 subagent を作る連鎖は行わない。
 - パスはホームディレクトリ環境変数（POSIX: `$HOME` / Windows: `%USERPROFILE%`）から解決する。実体は専用フォルダの `.claude/agents/` に **Write ツールで直接配置**するだけで、`ln -s` 等の OS 依存コマンドは使わない（Mac / Windows 両対応）。
 - 索引 `~/.belta/agents/AGENTS.md` はホーム側にあり `.gitignore` 対象。生成した subagent 実体は専用フォルダ `~/my-agent/.claude/agents/` 配下に置かれる（`/workflow-setup` が専用フォルダに `.gitignore` を用意し、誤コミットを防ぐ）。
 
 ## ファイル参照
 
-- frontmatter 雛形・モデル選択ポリシー: [references/agent-template.md](references/agent-template.md)
+- frontmatter 雛形: [references/agent-template.md](references/agent-template.md)
 - 専用フォルダのパス解決: [scripts/belta-init.js](../../scripts/belta-init.js)（`get agent_home`）
 - 親の権限 allowlist（tools サブセットの上限）: [.claude/settings.json](../../.claude/settings.json)
 - テキスト指示で足りる繰り返し: [rule-learning](../rule-learning/SKILL.md)

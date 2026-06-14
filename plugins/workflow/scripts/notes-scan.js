@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Belta workflow plugin — notes 走査エンジン（insights / user-model 共用）
+// BELTA workflow plugin — notes 走査エンジン（insights / user-model 共用）
 //
 // `~/.belta/notes/` の日次ログ（YYYY-MM-DD.md）とトピックノート（kebab-case.md）を
 // 決定的に走査し、振り返り（insights）や暗黙ユーザーモデル深化（user-model）の

@@ -63,11 +63,11 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/token-dashboard.js"
 
 ## 設定
 
-- 警告しきい値: `~/.belta/config.yaml` の `token_5h_warn`（既定 70000。Max 5x プランの 5 時間枠の目安の約 8 割。0 で警告オフ）。利用者が「警告がうるさい/もっと早く知りたい」と言ったら `node "${CLAUDE_PLUGIN_ROOT}/scripts/belta-init.js" set token_5h_warn <値>` で調整を提案する。プランが分からなければ AskUserQuestion で確認してよい（Pro ≈ 44k / Max 5x ≈ 88k / Max 20x ≈ 220k が 5 時間枠の世間的な目安）。
+- ゲージの目安ライン: `~/.belta/config.yaml` の `token_5h_warn`（既定 70000。Max 5x プランの 5 時間枠の目安の約 8 割。0 でゲージの目安ライン非表示）。これはダッシュボードの「直近5時間ゲージ」の満タン基準であり、割り込み警告は出さない（自分で `/usage` を見て確認する用）。利用者が「ゲージの基準を変えたい」と言ったら `node "${CLAUDE_PLUGIN_ROOT}/scripts/belta-init.js" set token_5h_warn <値>` で調整を提案する。プランが分からなければ AskUserQuestion で確認してよい（Pro ≈ 44k / Max 5x ≈ 88k / Max 20x ≈ 220k が 5 時間枠の世間的な目安）。
+- 継続確認（長時間 / 多消費で「続けてよいか」を確認）: `repeat-detect.js` が `~/.belta/config.yaml` の `continue_confirm_minutes`（既定 30 分・セッション開始からの経過）と `continue_confirm_tokens`（既定 150000・当該セッションの API 換算消費 `billable_token_estimate`）で発火する。どちらも 0 で無効。利用者が「もっと長く回してから確認して」「確認が多い／少ない」と言ったら `node "${CLAUDE_PLUGIN_ROOT}/scripts/belta-init.js" set continue_confirm_minutes <分>` / `set continue_confirm_tokens <トークン>` で調整を提案する。`token_5h_warn`（ダッシュボードのゲージ基準。割り込みなし）とは別物で、こちらは送信のたびに割り込みで確認を促す点が違う。
 
 ## ファイル参照
 
 - 集計・描画エンジン: [scripts/token-dashboard.js](../../scripts/token-dashboard.js)
 - 記録フック（Stop）: [hooks/token-usage.js](../../hooks/token-usage.js)
-- 5 時間合算・しきい値の共有ロジック: [hooks/tokens-util.js](../../hooks/tokens-util.js)
-- 警告の注入元: [hooks/session-start.js](../../hooks/session-start.js)（セッション開始時）/ [hooks/repeat-detect.js](../../hooks/repeat-detect.js)（セッション中・5 時間に 1 回）
+- 5 時間合算・目安ラインの共有ロジック: [hooks/tokens-util.js](../../hooks/tokens-util.js)

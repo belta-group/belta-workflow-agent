@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Belta workflow plugin — gh CLI（GitHub CLI）自動導入ヘルパー
+// BELTA workflow plugin — gh CLI（GitHub CLI）自動導入ヘルパー
 //
 // gh の有無を検出し、未導入なら OS 標準のパッケージマネージャで自動導入する。
 //   macOS  : Homebrew（brew install gh）

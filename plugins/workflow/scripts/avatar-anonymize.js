@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Belta workflow plugin — アバター数値の匿名化（GitHub Pages 公開用）
+// BELTA workflow plugin — アバター数値の匿名化（GitHub Pages 公開用）
 //
 // avatar-stats.js のフル集計から、依頼文・PII・本名・画像・slug・時刻を一切含まない
 // 「数値とバッジ id だけ」の公開用 JSON を、ホワイトリスト方式で生成する。

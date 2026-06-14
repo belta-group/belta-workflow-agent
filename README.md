@@ -1,4 +1,4 @@
-# belta-workflow-agent（Belta 業務アシスタント）
+# belta-workflow-agent（BELTA 業務アシスタント）
 
 **ひとことで言うと** — いつもの言葉で「これやっといて」と頼むだけで、4 つのアプリ（Notion・Slack・GitHub・Google Drive）への入力や整理を代わりにやってくれる、あなた専用のアシスタントです。
 
@@ -8,7 +8,7 @@
 > - 「来週の打ち合わせメモを整理して」と話しかける → メモアプリ（Notion）に自動で整理して保存
 > - 「インフラチームに共有して」と話しかける → チャット（Slack）に自動で投稿
 
-> **いまの状態**：お試し中の段階です。情報システム部の 2〜3 名が実際に使って動作を確認しています（2026-06-14 まで）。ここで集めた「どれだけ仕事が楽になったか」の記録を、2026-06-10 の経営会議に提出します。
+> **いまの状態**：お試し中の段階です。代表と事業開発 2 名が実際に使って動作を確認しています。ここで集めた「どれだけ仕事が楽になったか」の記録を、経営会議に提出する予定です。
 
 ---
 
@@ -27,6 +27,8 @@
 
 - 同じ言い方で何度か直すと、「次はこうしますね」と覚えてくれます。
 - よく頼む種類の仕事は、その仕事の「専門アシスタント」が自動で用意されます。
+- 定期的に動いて振り返り（`/insights`）や成長レポート（`/report`）を出し、複数ステップのゴール（`/goal`）も最後まで伴走します。
+- 使い込むほど育つ「育成アバター」（`/avatar`）で、これまでの積み重ねを楽しく振り返れます。
 
 ---
 
@@ -34,23 +36,36 @@
 
 ### ステップ 1：道具を入れる
 
-下のコマンドを 1 回実行します（情シス担当が代行することもできます）。
+入れ方は 2 通りあります。**いちばん簡単なのは「インストーラーをダウンロードしてダブルクリック」**です。
+
+**方法 A：インストーラー（おすすめ・コマンド不要）**
+
+お使いの OS のインストーラーをダウンロードして展開し、ダブルクリックするだけです。
+
+- macOS 用: [belta-installer-macos.zip](https://github.com/belta-group/belta-workflow-agent/releases/latest/download/belta-installer-macos.zip) → 展開して `install.command` をダブルクリック（初回だけ「開発元を検証できません」と出たら**右クリック →「開く」**）
+- Windows 用: [belta-installer-windows.zip](https://github.com/belta-group/belta-workflow-agent/releases/latest/download/belta-installer-windows.zip) → 展開して `install.bat` をダブルクリック
+
+画面の案内にしたがって会社のメールアドレス（`@belta.co.jp`）を入力すると、**あなた専用のフォルダ（`~/<メールの@より前>-agent`、例: `system-bot-agent`）を自動で用意**し、その中だけにアシスタント本体を取り込みます。Node.js や Claude Code 本体が未導入でも、必要なら導入を案内します。
+
+**方法 B：コマンドで入れる（情シス担当向け）**
+
+すでに Claude Code を使い慣れている場合は、次の 2 行でも入れられます。
 
 ```
 /plugin marketplace add belta-group/belta-workflow-agent
 /plugin install workflow@belta-workflow-agent
 ```
 
-> **入れる範囲（スコープ）は「このフォルダだけ（Local）」を選んでください。** このアシスタントは、あなた専用のフォルダ（`~/my-agent`）の中でだけ働く設計です。「すべての場所（User）」で入れてしまうと、関係ない作業中にも秘書が顔を出してしまいます。間違って全体に入れても、次のステップで専用フォルダだけに付け替えられます。
+> **入れる範囲（スコープ）は「このフォルダだけ（Local）」を選んでください。** このアシスタントは、あなた専用のフォルダの中でだけ働く設計です。「すべての場所（User）」で入れてしまうと、関係ない作業中にも秘書が顔を出してしまいます。間違って全体に入れても、次のステップで専用フォルダだけに付け替えられます。
+> 方法 B では、次のステップの `/workflow-setup` が専用フォルダ（既定 `~/my-agent`、同名があれば `my-agent-2`…）を作ります。
 
 ### ステップ 2：自己紹介に答える
 
-道具を入れたあと、**最初に画面を開いたときに、案内が自動で始まります**。
-案内ではまず **あなた専用のフォルダ（`~/my-agent`）を自動で用意**し、そのフォルダの中だけでアシスタントを有効にします（同名フォルダが既にあれば `my-agent-2` のように別名で作ります）。続けて、氏名・部署・メール・扱う情報の重要度・つなぎたいアプリを、対話形式で聞かれるので答えるだけです。
+専用フォルダで Claude Code を起動し、`/workflow-setup` と打つと案内が始まります（方法 A・B どちらの経路でも、未完了なら**最初に画面を開いたときに自動で始まります**）。氏名・部署・メール・扱う情報の重要度・つなぎたいアプリを、対話形式で聞かれるので答えるだけです。
 
 > もし案内が出ないときは `/workflow-setup` と打てば、いつでも始められます。
 > 一度終えれば次からは自動で始まりません。途中でやめた場合は、次に開いたときにまた続きから案内されます。
-> **セットアップが終わったら、次回からは `~/my-agent` フォルダを開いて使ってください**（POSIX: `$HOME/my-agent` / Windows: `%USERPROFILE%\my-agent`）。アシスタントはそのフォルダの中でだけ働きます。
+> **セットアップが終わったら、次回からは専用フォルダを開いて使ってください**（インストーラー経路は `~/<メールの@より前>-agent`、方法 B は `~/my-agent`。POSIX: `$HOME/...` / Windows: `%USERPROFILE%\...`）。アシスタントはそのフォルダの中でだけ働きます。
 
 ### ステップ 3：4 つのアプリと「つなぐ」許可をする
 
@@ -66,7 +81,7 @@
 
 > **必要なもの**：claude.ai の Max / Team / Enterprise いずれかの契約（本リポジトリは Max 契約を前提に作られています）。
 
-これで準備は完了です。あとは **`~/my-agent` フォルダを開いて** `/workflow` と打って話しかけるだけです。
+これで準備は完了です。あとは **専用フォルダを開いて** `/workflow` と打って話しかけるだけです。
 
 ---
 
@@ -93,14 +108,16 @@
 
 ### しくみの要点
 
-- **スコープはローカル限定運用**。`/plugin install` の既定は User スコープ（全ディレクトリ発火）だが、本エージェントは専用フォルダ（`~/my-agent`）限定で使う。`/workflow-setup`（`scripts/setup-agent-home.js`）が専用フォルダを作り、その `<folder>/.claude/settings.local.json` に `enabledPlugins` + `extraKnownMarketplaces` を冪等マージして局所有効化する。`SessionStart` フックは、ユーザースコープで有効化されていれば警告して付け替えを促す（設定は自動で書き換えない）。
+- **スコープはローカル限定運用**。`/plugin install` の既定は User スコープ（全ディレクトリ発火）だが、本エージェントは専用フォルダ（インストーラー経路は `~/<localpart>-agent`、`/workflow-setup` 既定は `~/my-agent`）限定で使う。`/workflow-setup`（`scripts/setup-agent-home.js`）が専用フォルダを作り、その `<folder>/.claude/settings.local.json` に `enabledPlugins` + `extraKnownMarketplaces` を冪等マージして局所有効化する。`SessionStart` フックは、ユーザースコープで有効化されていれば警告して付け替えを促す（設定は自動で書き換えない）。
 - 初回セットアップは `SessionStart` フックで once-only 起動（Claude Code にインストール時フックが無いための代替手段）。完了時に `~/.belta/.onboarded` が作成され、以降は自動案内されない。未完了のうちは毎回のセッション開始時に再案内される（やり残しの自己修復）。
 - 認証はすべて OAuth ベース（PAT・API キーの手動コピペ不要）。Notion / Slack / Google Drive は claude.ai Connector OAuth、GitHub は `gh` CLI の device flow OAuth。
 - GitHub のみ MCP サーバを置かず、`gh` CLI を Bash 経由で直接呼び出す（理由：監査経路の一元化 + ユーザ向け操作の最小化）。
-- データ配置は**ハイブリッド**：機密データ（profile・notes・audit・config・rules）はホームの `~/.belta/`、自動生成される subagent / skill の実体は専用フォルダの `~/my-agent/.claude/agents`・`.claude/skills`（索引はホームに残す）。
-- パーソナライズの内部動作：
+- 導入は**ダウンロード型インストーラー**（`installer/`：`bootstrap.js` ＋ OS 別ランチャー `install.command` / `install.bat`）でも、`/plugin install` でも可。前者はメール（`@belta.co.jp`）検証 → 専用フォルダ `~/<localpart>-agent` 作成 → `claude` があればローカル限定で実インストールまでを肩代わりする（Node / git / Claude Code 本体の不在も段階的に自動導入を案内）。
+- データ配置は**ハイブリッド**：機密データ（profile・notes・audit・config・rules・goals 等）はホームの `~/.belta/`、自動生成される subagent / skill の実体は専用フォルダの `<agent_home>/.claude/agents`・`.claude/skills`（索引はホームに残す）。
+- パーソナライズは侵襲度の低い順に 4 段階で住み分ける：**rule-learning**（テキスト指示）→ **agent-learning**（隔離委譲する subagent 生成）→ **skill-suggestion**（既製スキル導入）→ **skill-authoring**（専用スキル自作。専門業務が 3 回以上反復した最終手段）。
   - **発話 → ルール蓄積**：「次回からは」「毎回」等のフレーズや同じ訂正 2 回検出で、`~/.belta/rules/` にルールを提案・蓄積。
-  - **業務領域 → 専用エージェント生成**：同じ業務領域（例: Notion DB 設計 / 営業案件レビュー）が 5 営業日以内に 2 回出現すると、専用 Claude Code subagent を専用フォルダの `~/my-agent/.claude/agents/<slug>.md` に直接生成し、そのフォルダのセッションから標準 `Agent` ツールで呼び出せるようにする（`~/.claude/` への symlink 公開は廃止）。
+  - **業務領域 → 専用エージェント生成**：同じ業務領域（例: Notion DB 設計 / 営業案件レビュー）が反復すると、専用 Claude Code subagent を専用フォルダの `<agent_home>/.claude/agents/<slug>.md` に直接生成し、そのフォルダのセッションから標準 `Agent` ツールで呼び出せるようにする（`~/.claude/` への symlink 公開は廃止）。
+- **能動機能・自己管理**：自然言語の定期実行（scheduler / `/workflow-schedule`）、過去ログ横断の振り返り（insights / `/report`）、観察ベースのユーザーモデル深化（user-model）、複数ステップのゴール完遂（goal / `/goal`）、トークン消費の可視化（token-usage / `/usage`）、育成アバター（avatar / `/avatar`）、事実誤りの再発防止メモリ（hallucination-memory）を備える。決定的な走査・集計は Node スクリプト、意味判断・要約は LLM スキル、という二層構造。
 
 ### 構成
 
@@ -108,41 +125,67 @@
 belta-workflow-agent/
 ├── .claude-plugin/
 │   └── marketplace.json
+├── installer/                     ← ダウンロード型インストーラー（プラグイン導入前に単体で動く）
+│   ├── bootstrap.js               ← 実体（メール検証 → 専用フォルダ作成 → ローカル実インストール）
+│   ├── install.command            ← macOS 用ランチャー（ダブルクリック）
+│   └── install.bat                ← Windows 用ランチャー（ダブルクリック）
 ├── plugins/
 │   └── workflow/
 │       ├── .claude-plugin/
-│       │   └── plugin.json
-│       ├── skills/
-│       │   ├── workflow/          ← メインスキル
+│       │   └── plugin.json        ← マニフェスト（version はここと marketplace.json の 2 ファイルを同期）
+│       ├── skills/                ← 14 スキル
+│       │   ├── workflow/          ← メイン分岐
 │       │   ├── notion-schema/     ← Notion DB 設計知識
-│       │   ├── rule-learning/     ← 発話 → ルール自動蓄積
-│       │   └── agent-learning/    ← 業務領域 → 専用 subagent 自動生成
-│       ├── commands/
-│       │   ├── workflow.md
-│       │   └── workflow-setup.md
-│       └── hooks/
-│           ├── hooks.json         ← フック登録（SessionStart / PreToolUse / Stop）
-│           ├── session-start.js   ← 初回セットアップ自動起動（once-only、Node.js / Mac・Windows 両対応）
-│           ├── pre-tool-use.js    ← PII / 機密検知（Node.js / Mac・Windows 両対応）
-│           └── token-usage.js     ← トークン使用量ログ（Stop、~/.belta/audit/tokens/ に集計。Node.js / Mac・Windows 両対応）
+│       │   ├── rule-learning/     ← 発話 → ルール自動蓄積（明示）
+│       │   ├── agent-learning/    ← 業務領域 → 専用 subagent 自動生成
+│       │   ├── skill-suggestion/  ← 既製スキルの探索・導入
+│       │   ├── skill-authoring/   ← 専門業務 → 専用スキル自作（最終手段）
+│       │   ├── user-model/        ← 観察ベースの暗黙傾向を深化
+│       │   ├── hallucination-memory/ ← 事実誤りの再発防止メモリ
+│       │   ├── scheduler/         ← 自然言語の定期実行を登録・管理
+│       │   ├── insights/          ← 過去 notes 横断の振り返り
+│       │   ├── report/            ← デイリー/ウィークリー/マンスリー成長レポート
+│       │   ├── goal/              ← 複数ステップゴールの永続化・再開・完遂
+│       │   ├── token-usage/       ← トークン消費の可視化・省トークン助言
+│       │   └── avatar/            ← 育成アバター ダッシュボード
+│       ├── commands/              ← /workflow /workflow-setup /workflow-schedule
+│       │   │                         /insights /report /usage /goal /avatar
+│       │   └── …
+│       ├── hooks/
+│       │   ├── hooks.json         ← フック登録（SessionStart / UserPromptSubmit / PreToolUse / Stop）
+│       │   ├── session-start.js   ← 初回セットアップ自動起動・誤有効化警告・反復/再発/ゴール再開検知
+│       │   ├── repeat-detect.js   ← 同一セッション内の反復・訂正・継続確認の確定的検知
+│       │   ├── pre-tool-use.js    ← PII/機密検知（deny）＋やさしい説明（ask）
+│       │   ├── notes-record.js    ← 当日依頼を notes に確定的に記録（保持期間管理）
+│       │   ├── token-usage.js     ← トークン使用量ログ（Stop、~/.belta/audit/tokens/ に集計）
+│       │   ├── usage-track.js     ← 利用イベントの記録
+│       │   └── *-util.js          ← repeat / tokens / goal / explain の共用ロジック
+│       └── scripts/               ← 決定的エンジン（Node.js 単一実装 / Mac・Windows 両対応）
+│           ├── setup-agent-home.js   ← 専用フォルダ作成 + ローカル有効化
+│           ├── belta-init.js         ← ~/.belta/ 初期化 + config.yaml 管理
+│           ├── install.js            ← 単体インストーラー（CLI）
+│           ├── apply-permissions.js  ← permission allowlist の冪等マージ
+│           ├── apply-auto-update.js  ← marketplace 自動更新の有効化
+│           ├── ensure-gh.js          ← gh CLI 導入確認・自動導入
+│           ├── notes-scan.js         ← insights / user-model 共用の走査
+│           ├── schedule-spec.js      ← scheduler 補助（cron 候補・検証）
+│           ├── goal-scan.js          ← goal の走査・進捗集計
+│           ├── token-dashboard.js    ← トークンダッシュボード HTML 生成
+│           └── avatar-*.js           ← アバターの集計・描画・設定・匿名化
 ├── .gitleaks.toml
-├── .github/workflows/secret-scan.yml
-├── plugins/workflow/scripts/
-│   ├── belta-init.js             ← ~/.belta/ 初期化 + config.yaml 管理（Node.js / Mac・Windows 両対応）
-│   ├── apply-permissions.js      ← permission allowlist の冪等マージ（フォールバック）
-│   └── ensure-gh.js              ← gh CLI 導入確認・自動導入（macOS: brew / Windows: winget。Node.js 単一実装）
+├── .github/workflows/             ← secret-scan / docs（Pages 公開）/ build-installer
 ├── scripts/
-│   └── aggregate-token-usage.js  ← トークン使用量の集計（Phase 0 実測データ用。--md / --json 出力）
-└── docs/
-    ├── background.md              ← Phase -1 背景
-    └── tasks.md                   ← 実装チェックリスト
+│   └── aggregate-token-usage.js   ← トークン使用量の集計（Phase 0 実測データ用。--md / --json 出力）
+└── docs/                          ← VitePress 製の利用者向けガイド（GitHub Pages へ自動デプロイ）
+    ├── index.md / guide/*.md      ← 導入・接続・使い方・パーソナライズ・セキュリティ・FAQ
+    └── tasks/tasks.md             ← 実装チェックリスト（担当者向け）
 ```
 
 ### セキュリティ
 
 ひとことで言うと、**「機密情報がうっかり外に出ないよう、何重もの見張りを置いている」** という設計です。
 
-- **外部送信前検知**: `hooks/pre-tool-use.js` がマイナンバー / クレジットカード / メールアドレス一括 / 「マル秘」「社外秘」/ パスワードリテラルを検知し、書き込み系（Slack / Notion / Google Drive の `send|create|update`、`gh issue|pr|release|gist create`、`curl|wget|http`）をブロック。
+- **外部送信前検知**: `hooks/pre-tool-use.js` がマイナンバー / クレジットカード / メールアドレス一括 / 「マル秘」「社外秘」/ パスワードリテラルを検知し、書き込み系（Slack / Notion / Google Drive の `send|create|update`、`gh issue|pr|release|gist create`、`curl|wget|http`）をブロック（deny）。PII が無い書き込み・外部送信には、ノンエンジニア向けの平易な説明を添えて許可確認（ask）を出す（`hooks/explain-util.js`）。
 - **Git 層検知**: `.gitleaks.toml` + GitHub Actions（`secret-scan.yml`）が PR / push 時にスキャン。
 - **permission allowlist**: 同梱の `.claude/settings.json` で読み取り系は allow、書き込み系は ask、`Bash(rm -rf *)` / `Bash(sudo *)` / `Bash(git push --force *)` / `Bash(gh repo delete *)` 等は deny。
 - **個人データの物理除外**: `.belta/` は `.gitignore` で除外。
@@ -165,9 +208,9 @@ belta-workflow-agent/
 
 担当者向けの内部ドキュメント:
 
-- 背景と目的: [docs/background.md](docs/background.md)
-- 実装チェックリスト: [docs/tasks.md](docs/tasks.md)
-- 詳細プラン: `~/.claude-profiles/belta/plans/dev-cc-company-snug-hammock.md`
+- 実装チェックリスト: [docs/tasks/tasks.md](docs/tasks/tasks.md)
+- 実装ルール（クロスプラットフォーム・ドキュメント執筆・スキル作成・デザイン規約）: [CLAUDE.md](CLAUDE.md) と [.claude/rules/](.claude/rules/)
+- インストーラーの詳細: [installer/README.md](installer/README.md)
 
 ## ライセンス
 

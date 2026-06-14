@@ -4,14 +4,14 @@
     "name": "belta-group"
   },
   "metadata": {
-    "description": "Belta 社内向けワークフロー自動化エージェント。Notion / Slack / GitHub / Google Drive を MCP で接続し、業務発話から最適ツールに分岐する。"
+    "description": "BELTA 社内向けワークフロー自動化エージェント。Notion / Slack / GitHub / Google Drive を MCP で接続し、業務発話から最適ツールに分岐する。"
   },
   "plugins": [
     {
       "name": "workflow",
       "source": "./plugins/workflow",
-      "description": "/workflow で 5 問オンボーディング → Notion スキーマ設計・MCP 4 ツール連携・PII 検知・自動ルール化までを束ねる Belta 業務エージェント。",
-      "version": "0.5.4",
+      "description": "/workflow で 5 問オンボーディング → Notion スキーマ設計・MCP 4 ツール連携・PII 検知・自動ルール化までを束ねる BELTA 業務エージェント。",
+      "version": "0.6.0",
       "author": {
         "name": "belta-group"
       },

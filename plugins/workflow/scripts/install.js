@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Belta workflow plugin — スタンドアロン・インストーラー（Mac / Windows 両対応）
+// BELTA workflow plugin — スタンドアロン・インストーラー（Mac / Windows 両対応）
 //
 // 単体（`node scripts/install.js`）で、専用フォルダの作成から初期化までを一気通貫で行う
 // 独立インストーラー。仕様:
@@ -57,7 +57,7 @@ for (let i = 0; i < argv.length; i++) {
 function printUsage() {
   process.stdout.write(
     [
-      "Belta workflow installer",
+      "BELTA workflow installer",
       "  node scripts/install.js [--email system-bot@belta.co.jp] [--base <dir>]",
       "                          [--ref <branch|tag>] [--dry-run] [--max-attempts <n>]",
       "",

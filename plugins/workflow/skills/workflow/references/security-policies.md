@@ -1,6 +1,6 @@
 # セキュリティポリシー
 
-Belta ワークフローエージェントの機密情報・認証情報の取り扱い方針。`everything-claude-code`（`rules/security.md` / `skills/security-review/SKILL.md`）を起点に、**業務自動化エージェント向け（PII / 機密キーワード / 外部送信ガード / OAuth）** に再構成したもの。実装は `hooks/pre-tool-use.js`（PII 検知）・`.claude/settings.json`（permission allowlist, Day 7）・`.gitleaks.toml`（Git 層, Day 10）の 3 つで多層化する。
+BELTA ワークフローエージェントの機密情報・認証情報の取り扱い方針。`everything-claude-code`（`rules/security.md` / `skills/security-review/SKILL.md`）を起点に、**業務自動化エージェント向け（PII / 機密キーワード / 外部送信ガード / OAuth）** に再構成したもの。実装は `hooks/pre-tool-use.js`（PII 検知）・`.claude/settings.json`（permission allowlist, Day 7）・`.gitleaks.toml`（Git 層, Day 10）の 3 つで多層化する。
 
 > このエージェントは開発ツールではなく **業務窓口**（Notion / Slack / Google Drive / GitHub）。脅威の中心は SQL インジェクション等ではなく、**機密情報の外部送信・リポジトリ流出**。本ポリシーはそこに最適化する。
 

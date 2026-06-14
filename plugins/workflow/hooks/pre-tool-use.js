@@ -1,20 +1,39 @@
 #!/usr/bin/env node
 //
-// Belta workflow plugin — PII / 機密検知フック（PreToolUse）
+// BELTA workflow plugin — PreToolUse フック（2 役割）
 //
-// 外部送信・書き込み系のツール呼び出しの直前に発火し、ペイロードに
-// マイナンバー / クレジットカード / メールアドレス一括 / 機密ラベル
-// （マル秘・社外秘・Confidential）/ パスワードリテラルが含まれていれば
-// その呼び出しを deny する。読み取り系・対象外ツールは素通し（出力なし）し、
-// 通常の permission フロー（allow / ask）に委ねる。
+// 役割 1: PII / 機密検知（deny）
+//   外部送信・書き込み系のツール呼び出しの直前に発火し、ペイロードに
+//   マイナンバー / クレジットカード / メールアドレス一括 / 機密ラベル
+//   （マル秘・社外秘・Confidential）/ パスワードリテラルが含まれていれば
+//   その呼び出しを deny する。
+//
+// 役割 2: 許可ダイアログのやさしい説明（ask）
+//   PII が無く、かつ「書き込み・外部送信・確認が必要な操作」と判定できる
+//   コマンド/ツールには、ノンエンジニアにも分かる平易な説明を添えて ask を返す。
+//   Claude Code はこの permissionDecisionReason を許可確認ダイアログに表示するため、
+//   「curl 127.0.0.1/hoge を実行してよいですか？」のような技術的な確認を
+//   「お使いのパソコン内のプログラムにアクセスします。許可しますか？」へ翻訳できる。
+//   説明の生成は hooks/explain-util.js（辞書 → 型分類 → LLM フォールバックの 3 段）に
+//   委ねる。列挙（ハードコード）に頼らず未知コマンドも型レベルで意味づけし、純読み取り・
+//   判定不能は素通し（read 系の allow を壊さない安全側）。対象コマンドは元々
+//   settings.json の `ask`（毎回確認）なので確認回数は増えず、説明が足されるだけ。
 //
 // Mac / Windows 両対応のためシェル非依存の Node.js で実装する
 // （Claude Code 同梱の node ランタイムで動作。grep / sed に依存しない）。
 //
 // 入力: stdin に PreToolUse の JSON（tool_name / tool_input）。
-// 出力: deny 時のみ permissionDecision JSON を stdout に出す。それ以外は無出力 exit 0。
+// 出力: deny / ask 時のみ permissionDecision JSON を stdout に出す。
+//       それ以外は無出力 exit 0（fail-open: 例外時もセッションを妨げない）。
 
 const fs = require("fs");
+const { buildAskReason, SUBPROCESS_GUARD } = require("./explain-util.js");
+
+// LLM フォールバック（explain-util の claude -p）から本フックが再発火しても
+// 無限再帰しないためのガード。子セッションのフックは即素通しで抜ける。
+if (process.env[SUBPROCESS_GUARD] === "1") {
+  process.exit(0);
+}
 
 // ---- stdin 読み取り（両 OS 共通。fd 0 を同期読み）-----------------------------
 let raw = "";
@@ -34,7 +53,9 @@ try {
 const toolName = String(payload.tool_name || "");
 const toolInput = payload.tool_input || {};
 
-// ---- 対象判定：この呼び出しが「外部送信・書き込み系」か ----------------------
+// ============================================================================
+// 役割 1 の対象判定：この呼び出しが「外部送信・書き込み系（PII 検知対象）」か
+// ============================================================================
 // MCP 書き込み系ツール（claude.ai Connector）。ツール名はサーバ接頭辞付き
 // （mcp__<id>__slack_send_message 等）のため、サフィックスで判定する。
 const MCP_WRITE_PATTERNS = [
@@ -62,7 +83,7 @@ function bashWriteReasons(cmd) {
   return reasons;
 }
 
-// 対象なら { scanText, channel } を返す。対象外なら null。
+// 役割 1 対象なら { scanText, channel } を返す。対象外なら null。
 function resolveTarget() {
   // Bash（ツール名は "Bash" もしくはサフィックス一致）
   if (/(^|_)Bash$/.test(toolName) || toolName === "Bash") {
@@ -77,12 +98,6 @@ function resolveTarget() {
     return { scanText: JSON.stringify(toolInput), channel: toolName };
   }
   return null;
-}
-
-const target = resolveTarget();
-if (!target) {
-  // 対象外：通常の permission フローに委ねる
-  process.exit(0);
 }
 
 // ---- PII / 機密検知 ----------------------------------------------------------
@@ -128,26 +143,45 @@ function detect(text) {
   return hits;
 }
 
-const hits = detect(target.scanText);
-
-if (hits.length === 0) {
-  // PII 無し：通常フローに委ねる
+// ============================================================================
+// メイン：deny（最優先）→ ask（やさしい説明）→ 素通し
+// ============================================================================
+function emit(decision, reason) {
+  process.stdout.write(
+    JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: "PreToolUse",
+        permissionDecision: decision,
+        permissionDecisionReason: reason,
+      },
+    }) + "\n"
+  );
   process.exit(0);
 }
 
-// ---- deny 出力 ---------------------------------------------------------------
-const reason =
-  `[Belta PII 検知] 外部送信・書き込み（${target.channel}）のペイロードに機密情報が検出されたため、この操作をブロックしました。\n` +
-  `検出: ${hits.join(" / ")}\n` +
-  `送信前に該当箇所を除去・マスキングするか、外部送信が不要な手段に切り替えてください。`;
+try {
+  const target = resolveTarget();
 
-const output = {
-  hookSpecificOutput: {
-    hookEventName: "PreToolUse",
-    permissionDecision: "deny",
-    permissionDecisionReason: reason,
-  },
-};
+  // 役割 1: 外部送信・書き込み系で PII を検出 → deny（最優先）
+  if (target) {
+    const hits = detect(target.scanText);
+    if (hits.length > 0) {
+      emit(
+        "deny",
+        `[BELTA PII 検知] 外部送信・書き込み（${target.channel}）のペイロードに機密情報が検出されたため、この操作をブロックしました。\n` +
+          `検出: ${hits.join(" / ")}\n` +
+          `送信前に該当箇所を除去・マスキングするか、外部送信が不要な手段に切り替えてください。`
+      );
+    }
+  }
 
-process.stdout.write(JSON.stringify(output) + "\n");
-process.exit(0);
+  // 役割 2: 書き込み・外部送信・確認系と判定できれば、やさしい説明つき ask
+  const askReason = buildAskReason(toolName, toolInput);
+  if (askReason) emit("ask", askReason);
+
+  // どちらでもない（読み取り系・判定不能）→ 素通し。通常の permission に委ねる。
+  process.exit(0);
+} catch {
+  // fail-open: 例外時も無出力でセッションを妨げない
+  process.exit(0);
+}

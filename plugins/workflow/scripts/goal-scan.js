@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Belta workflow plugin — ゴール走査エンジン（goal スキル用）
+// BELTA workflow plugin — ゴール走査エンジン（goal スキル用）
 //
 // `~/.belta/goals/` のゴールファイル（<slug>.md）を決定的に走査し、進捗集計・
 // 次ステップ・stale（停滞）検知の「材料」を JSON で stdout に出す。

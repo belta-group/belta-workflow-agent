@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Belta workflow plugin — permission allowlist 適用フォールバック（Day 7）
+// BELTA workflow plugin — permission allowlist 適用フォールバック（Day 7）
 //
 // 同梱の権威ソース `<plugin>/.claude/settings.json` の permissions（allow/ask/deny）を、
 // 利用者の settings.json へ冪等マージする。プラグイン同梱 settings のマージが

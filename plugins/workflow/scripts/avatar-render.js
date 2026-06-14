@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Belta workflow plugin — 育成アバター ダッシュボード HTML 生成（決定的）
+// BELTA workflow plugin — 育成アバター ダッシュボード HTML 生成（決定的）
 //
 // avatar-stats.js の集計結果から、自己完結（CDN 依存ゼロ）の単一 HTML を生成する。
 // レーダーチャート（インライン SVG）・稼働ヒートマップ（CSS grid）・実績バッジ・
