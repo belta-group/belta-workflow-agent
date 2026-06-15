@@ -40,6 +40,10 @@ description: >
 
 トリガ A/B で捉えた同種タスクを、`~/.belta/profile.md` の **主要業務** と照合し、利用者の業務に効く候補に重み付けする。業務と無関係な思いつきは提案しない。
 
+### トリガ D: 能動起動（`/skill-suggest`）
+
+利用者が `/skill-suggest` で **能動的に** 起動した場合は、トリガ A/B/C の反復を待たず本フローに合流する。部署（`profile.md` の `department`）・困りごと・直近 notes を起点に、下の **Step 1.5（カタログ照合）から開始**する。オンボーディング（`/workflow-setup` の部署スキル提案）も同様にカタログ照合経由で本フローに合流する。
+
 ---
 
 ## 自動化フロー
@@ -50,16 +54,28 @@ description: >
 
 > 例: PDF 抽出は `pdf` スキル、スプレッドシートは `xlsx` スキル、議事録要約は `workflow` 内で完結することが多い。まず手元の道具で足りるかを必ず確認する。
 
-### Step 2: 候補探索（find-skills 経由）
+### Step 1.5: カタログ照合（catalog-scan・決定的・まず最初に）
 
-手元で賄えないと判断したら、`find-skills` スキル（Claude Code 標準で利用可能）を使ってインストール可能なスキルを検索する。候補ごとに **出典・提供元・要求権限** を把握する。
+手元の道具で足りないと判断したら、**find-skills の前に** キュレート済みカタログ（[references/skills-catalog.json](references/skills-catalog.json)）を決定的に照合する。読み取り専用・オフライン・即時：
+
+```
+node "${CLAUDE_PLUGIN_ROOT}/scripts/catalog-scan.js" [--category <c>] [--department <slug>] --available-only
+```
+
+- 返る JSON の `candidates` には各候補の `source` / `auto_installable`（source から再計算）/ `required_permissions` / `status`（new/installed/rejected）/ `cooldown_until` が付く。**冷却中・導入済みはヘルパー側で既に除外済み**なので、ここに出た候補はそのまま提案検討に進めてよい。
+- ヒットがあれば、最も適合度の高い候補を Step 3（allowlist 判定）→ Step 4（提案）へ。
+- `catalog_available:false`（カタログが読めない）か、フィルタ結果が空でカタログ外の能力が要るときだけ Step 2（find-skills）に進む。
+
+### Step 2: 候補探索（find-skills 経由・カタログ外のフォールバック）
+
+カタログにヒットしない／カタログ外の能力をネットワーク探索したいときだけ、`find-skills` スキル（Claude Code 標準で利用可能）を使ってインストール可能なスキルを検索する。候補ごとに **出典・提供元・要求権限** を把握する。catalog-scan が決定的に答えられる範囲（既知スキルの提示と allowlist/冷却判定）と、find-skills に倒す範囲（カタログ外のネットワーク探索）を混ぜないこと。
 
 ### Step 3: 信頼ソース allowlist の判定
 
-候補を [references/skill-allowlist.md](references/skill-allowlist.md) の allowlist に照合する：
+候補を [references/skill-allowlist.md](references/skill-allowlist.md) の allowlist に照合する。**Step 1.5 のカタログ候補は `catalog-scan.js` が `source` から再計算した `auto_installable` を信頼根拠として持つ**ので、それをそのまま使ってよい（冷却・導入済みも既に除外済み）。find-skills 由来のカタログ外候補は、ここで `source` を allowlist に照合する：
 
-- **allowlist 内**（社内 marketplace `belta-group/*` + Anthropic 公式）→ 自動インストール提案の対象。
-- **allowlist 外**（未審査・第三者）→ **自動インストールしない**。提案のみに留め、手動導入の手順と注意点を案内する。
+- **allowlist 内**（社内 marketplace `belta-group/*` + Anthropic 公式 ＝ `auto_installable:true`）→ 自動インストール提案の対象。
+- **allowlist 外**（未審査・第三者 ＝ `auto_installable:false`）→ **自動インストールしない**。提案のみに留め、手動導入の手順と注意点（[skill-allowlist.md](references/skill-allowlist.md) の目視確認チェックリスト）を案内する。
 
 ### Step 4: 提案（AskUserQuestion）
 
@@ -125,8 +141,11 @@ suggested / installed / rejected / uninstalled を追跡する。
 
 ## ファイル参照
 
-- 許可 marketplace / 提供元 / 既定推奨スキル一覧: [references/skill-allowlist.md](references/skill-allowlist.md)
-- 候補探索: `find-skills` スキル
+- キュレート済みスキルカタログ（正本）: [references/skills-catalog.json](references/skills-catalog.json)
+- カタログ照合ヘルパー（決定的・読み取り専用）: `scripts/catalog-scan.js`
+- 許可 marketplace / 提供元 / 既定推奨スキル一覧 / 非公式の目視確認チェックリスト: [references/skill-allowlist.md](references/skill-allowlist.md)
+- 能動起動の入口コマンド: `/skill-suggest`（`commands/skill-suggest.md`）
+- 候補探索（カタログ外フォールバック）: `find-skills` スキル
 - テキスト指示で足りる繰り返し: [rule-learning](../rule-learning/SKILL.md)
 - 業務領域そのものの繰り返し: [agent-learning](../agent-learning/SKILL.md)
 - 既製品が無い専門業務を専用スキルとして自作する: [skill-authoring](../skill-authoring/SKILL.md)

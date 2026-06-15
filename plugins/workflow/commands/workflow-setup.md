@@ -116,6 +116,22 @@ created_at: <YYYY-MM-DD>
 
 > ロールは**エージェント主導で育てる**（観察 → 提案 → 承認 → 反映。新設・ブラッシュアップの条件と冷却は [references/roles.md](../skills/workflow/references/roles.md)「ロールの提案と成長」）。`~/.belta/` はホームの個人データ（`.gitignore` 済み）。運営モードで索引とプライマリロールが毎セッション読み込まれる。ただし `profile.md` / `RULES.md`（rule-learning）の明示指示が優先する。Write ツールで生成するため OS 依存コマンドは不要（Mac / Windows 両対応）。
 
+### Step 3.6. 部署の定番スキルの提案（任意・スキップ可）
+
+生成したロールの部署に合わせて、**よく使われる既製スキル**を提案します。`claude-skills-installer` 的な「業務に合うスキルだけ入れる」を、belta のキュレート済みカタログ＋信頼判定で行います。**提案のみ**で、allowlist 内でも**サイレント導入はしません**（必ず確認を取る）。
+
+1. カタログ照合（決定的・読み取り専用・fail-open）。`<slug>` は Step 3.5 のロール slug：
+
+   ```
+   node "${CLAUDE_PLUGIN_ROOT}/scripts/catalog-scan.js" --department <slug> --available-only
+   ```
+
+2. 返る JSON の `candidates` から、**適合度の高い 1〜2 件に絞って** `AskUserQuestion` で提案する（一度に詰め込まない）。各候補は **提供元（source）・要求権限（required_permissions）・用途** を併記する。`catalog_available:false` ならこのステップは黙ってスキップしてよい。
+3. 多くは Claude Code 同梱で「もう使える」ことが多い（`install_hint` 参照）。その場合は導入ではなく**利用案内**に切り替える。未導入かつ承認されたものだけ `/plugin install <skill>@<marketplace>`（OS 非依存）で導入する。
+4. 承認/却下は `~/.belta/skills/SKILLS.md` に記録する（`skill-suggestion` スキルの SKILLS.md 形式・冷却機構と同一。詳細は [skills/skill-suggestion/SKILL.md](../skills/skill-suggestion/SKILL.md) Step 5）。
+
+> 急ぐなら飛ばしてよい（後から `/skill-suggest` でいつでも提案を受けられる）。判断・提案ロジックの本体は `skill-suggestion` スキルにあり、このステップはその能動起動の入口（オンボ版）。
+
 ### Step 4. MCP 4 ツール接続（OAuth ベース・PAT/API キー手動コピペ不要）
 
 Step 1 で選んだツールのみ案内すればよい。

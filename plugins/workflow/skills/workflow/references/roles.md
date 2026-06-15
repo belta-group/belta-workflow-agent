@@ -105,6 +105,10 @@
 | 資料・手順書・スプレッドシート | Google Drive |
 | スクリプト・設定・IaC・PR レビュー | GitHub（`gh` CLI） |
 
+### 推奨スキル
+
+この部署の定番スキルは `node "${CLAUDE_PLUGIN_ROOT}/scripts/catalog-scan.js" --department info-system --available-only` で引く（**正本はカタログ `skills-catalog.json`**。ここにスキル ID は列挙しない＝台帳との二重管理を避ける）。提案・導入の作法は [`skill-suggestion` スキル](../../skill-suggestion/SKILL.md)（提供元・要求権限を併記し、allowlist 内でもサイレント導入しない）。オンボーディングでも部署スキル提案として案内される。
+
 ---
 
 ## 汎用ロール雛形（未詳細部署用）
@@ -127,6 +131,10 @@
 - 連絡・周知 → Slack
 - 資料・ファイル → Google Drive
 - コード・PR → GitHub（gh CLI）
+
+## 推奨スキル
+- 定番スキルは `catalog-scan.js --department <この部署 slug> --available-only` で引く（正本は skills-catalog.json）。
+- 未詳細部署では部署タグ付きの候補が無いことが多く、その場合は部署非依存（全部署推奨）の候補が返る。
 
 ## メモ
 - この部署はまだ詳細化されていない（汎用雛形で運用中）。

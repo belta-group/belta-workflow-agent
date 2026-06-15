@@ -1,0 +1,99 @@
+{
+  "$schema_version": 1,
+  "generated_note": "skill-suggestion がスキル提案で照合する正本（キュレート済み台帳）。catalog-scan.js が決定的に読取・フィルタする。手編集可。状態（提案/導入/却下/冷却）の正本はここではなく ~/.belta/skills/SKILLS.md 側に置く（二重管理を避ける）。",
+  "field_notes": {
+    "id": "一意キー。SKILLS.md 追記行の <skill> と一致させる（冷却・導入済み判定のキー）。",
+    "category": "document | spreadsheet | slides | automation | authoring | discovery | dept-specific",
+    "source": "belta-group/<repo> | anthropic | third-party:<owner>。信頼判定の根拠（skill-allowlist.md）。",
+    "auto_installable": "冗長記載（人間可読用）。真の値は catalog-scan.js が source から再計算して整合確認する。belta-group|anthropic のとき true。",
+    "audience": "all（全員）| dev（開発者向け）| dept:<slug>（特定部署）。複数可。",
+    "departments": "この束を特に推奨する部署 slug の配列。空配列 = 部署非依存（全部署で推奨）。",
+    "required_permissions": "提案時に必ず提示する要求権限・外部送信の範囲（skill-allowlist.md「提案時に必ず提示」）。"
+  },
+  "skills": [
+    {
+      "id": "pdf",
+      "name": "PDF 抽出・結合・分割・OCR",
+      "category": "document",
+      "official": true,
+      "source": "anthropic",
+      "auto_installable": true,
+      "install_hint": "多くは Claude Code 同梱（Step1 の重複チェックで「もう使える」になりやすい）。未導入なら /plugin install pdf@<marketplace>。",
+      "install_verified": true,
+      "note": "表・テキスト抽出、結合・分割、フォーム処理、スキャンPDFのOCR。",
+      "audience": ["all"],
+      "required_permissions": ["Read", "Write", "Bash(python ...)"],
+      "departments": []
+    },
+    {
+      "id": "xlsx",
+      "name": "スプレッドシート集計・整形",
+      "category": "spreadsheet",
+      "official": true,
+      "source": "anthropic",
+      "auto_installable": true,
+      "install_hint": "多くは Claude Code 同梱。未導入なら /plugin install xlsx@<marketplace>。",
+      "install_verified": true,
+      "note": "xlsx / csv / tsv の集計・整形・数式・チャート・乱れたデータの整理。",
+      "audience": ["all"],
+      "required_permissions": ["Read", "Write", "Bash(python ...)"],
+      "departments": []
+    },
+    {
+      "id": "pptx",
+      "name": "スライド作成・読み取り",
+      "category": "slides",
+      "official": true,
+      "source": "anthropic",
+      "auto_installable": true,
+      "install_hint": "多くは Claude Code 同梱。未導入なら /plugin install pptx@<marketplace>。",
+      "install_verified": true,
+      "note": "デッキ生成・テンプレ適用・既存 pptx からのテキスト抽出。",
+      "audience": ["all"],
+      "required_permissions": ["Read", "Write", "Bash(python ...)"],
+      "departments": []
+    },
+    {
+      "id": "docx",
+      "name": "Word 文書作成・編集",
+      "category": "document",
+      "official": true,
+      "source": "anthropic",
+      "auto_installable": true,
+      "install_hint": "多くは Claude Code 同梱。未導入なら /plugin install docx@<marketplace>。",
+      "install_verified": true,
+      "note": "体裁付き文書の作成・編集、差し込み、追跡変更・コメント処理。",
+      "audience": ["all"],
+      "required_permissions": ["Read", "Write", "Bash(python ...)"],
+      "departments": []
+    },
+    {
+      "id": "find-skills",
+      "name": "インストール可能スキルの探索",
+      "category": "discovery",
+      "official": true,
+      "source": "anthropic",
+      "auto_installable": true,
+      "install_hint": "Claude Code 標準で利用可能。カタログ外の能力を探すときの長尾フォールバック。",
+      "install_verified": true,
+      "note": "本カタログにヒットしない要求のときに、ネットワーク探索でスキルを探す入口。",
+      "audience": ["all"],
+      "required_permissions": ["Read", "WebSearch"],
+      "departments": []
+    },
+    {
+      "id": "skill-creator",
+      "name": "スキルの新規作成・改善",
+      "category": "authoring",
+      "official": true,
+      "source": "anthropic",
+      "auto_installable": true,
+      "install_hint": "多くは Claude Code 同梱。専用スキルの自作は skill-authoring スキルの消去法ゲートを満たすときのみ。",
+      "install_verified": true,
+      "note": "既製品で足りない専門業務を自作するための足場。導入より先に skill-authoring の発火ゲートを確認すること。",
+      "audience": ["all"],
+      "required_permissions": ["Read", "Write"],
+      "departments": ["info-system"]
+    }
+  ]
+}
