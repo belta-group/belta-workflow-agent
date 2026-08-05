@@ -80,8 +80,11 @@ function installedVersion() {
   return (manifest && manifest.version) || "";
 }
 
-// pluginRoot から上位へ `.claude-plugin/marketplace.json` を探索
-//（dev リポジトリ / 配布キャッシュの両対応。apply-auto-update.js と同一パターン）。
+// pluginRoot から上位へ `.claude-plugin/marketplace.json` を探索（**dev リポジトリ専用**）。
+// 罠: 配布インストールの実体は `<config>/plugins/cache/<marketplace>/<plugin>/<version>/` に
+//     展開され、この階層には親方向のどこにも marketplace.json が無い。よって配布環境では
+//     この関数は必ず null を返す（＝これ単独に頼ると常に marketplace_unresolved になる）。
+//     配布環境は resolveFromInstalledPlugins / marketplaceFromCachePath で解決する。
 function findMarketplaceJson(start) {
   let dir = start;
   for (;;) {
@@ -91,6 +94,85 @@ function findMarketplaceJson(start) {
     if (parent === dir) return null;
     dir = parent;
   }
+}
+
+// Claude Code の設定ディレクトリ（既定 `<home>/.claude`、CLAUDE_CONFIG_DIR で移設可）。
+function claudeConfigDir() {
+  return process.env.CLAUDE_CONFIG_DIR || path.join(homeDir(), ".claude");
+}
+
+function pluginsDir() {
+  return path.join(claudeConfigDir(), "plugins");
+}
+
+// パス比較の正規化（symlink・大文字小文字・末尾区切りの差を吸収）。
+function canonPath(p) {
+  if (!p) return "";
+  let s = path.resolve(String(p));
+  try {
+    s = fs.realpathSync(s);
+  } catch {
+    /* 実体が無くても resolve 済みの文字列で比較する */
+  }
+  s = s.replace(/[\\/]+$/, "");
+  return process.platform === "win32" ? s.toLowerCase() : s;
+}
+
+// ① installed_plugins.json から marketplace 名を引く（最も確実）。
+//    キーが `<plugin>@<marketplace>` 形式で、値の installPath が pluginRoot と一致する。
+function resolveFromInstalledPlugins(root, name) {
+  const data = readJson(path.join(pluginsDir(), "installed_plugins.json"));
+  const plugins = data && data.plugins;
+  if (!plugins || typeof plugins !== "object") return null;
+
+  const target = canonPath(root);
+  let byNameOnly = null; // installPath 不一致でも名前一致は保険として拾う
+
+  for (const key of Object.keys(plugins)) {
+    const at = key.lastIndexOf("@");
+    if (at <= 0) continue;
+    if (key.slice(0, at) !== name) continue;
+    const mp = key.slice(at + 1);
+    if (!mp) continue;
+    if (!byNameOnly) byNameOnly = mp;
+
+    const entries = Array.isArray(plugins[key]) ? plugins[key] : [];
+    for (const e of entries) {
+      if (e && e.installPath && canonPath(e.installPath) === target) return mp;
+    }
+  }
+  return byNameOnly;
+}
+
+// ② キャッシュのパス構造から marketplace 名を導出（installed_plugins.json が壊れている保険）。
+//    `<...>/plugins/cache/<marketplace>/<plugin>/<version>` の並びを探す。
+function marketplaceFromCachePath(root, name) {
+  const parts = path.resolve(root).split(/[\\/]+/).filter(Boolean);
+  for (let i = 0; i + 3 < parts.length; i++) {
+    if (parts[i] !== "plugins" || parts[i + 1] !== "cache") continue;
+    if (parts[i + 3] !== name) continue;
+    return parts[i + 2];
+  }
+  return null;
+}
+
+// marketplace 名 → repo。ローカルクローンの marketplace.json →
+// known_marketplaces.json の source の順で引く。
+function repoForMarketplace(marketplaceName, name) {
+  if (!marketplaceName) return null;
+
+  const clone = path.join(pluginsDir(), "marketplaces", marketplaceName, ".claude-plugin", "marketplace.json");
+  const mp = readJson(clone);
+  if (mp) {
+    const entry = Array.isArray(mp.plugins) ? mp.plugins.find((p) => p && p.name === name) : null;
+    const r = parseRepo(entry && entry.repository) || parseRepo(mp.repository);
+    if (r) return r;
+  }
+
+  const known = readJson(path.join(pluginsDir(), "known_marketplaces.json"));
+  const src = known && known[marketplaceName] && known[marketplaceName].source;
+  if (src) return parseRepo(src.repo) || parseRepo(src.url);
+  return null;
 }
 
 // repository URL / 短縮形 → "owner/repo"。github 以外や解析不能は null。
@@ -146,23 +228,58 @@ function emit(obj) {
 }
 
 // ---- marketplace 名 / repo の決定 --------------------------------------------
+// 解決順: 明示指定 → dev リポジトリの marketplace.json → installed_plugins.json →
+//         キャッシュのパス構造。repo はローカルクローン / known_marketplaces.json で補う。
 function resolveIdentity() {
   let marketplaceName = marketplaceOverride;
   let repo = repoOverride ? parseRepo(repoOverride) : null;
   const name = pluginName();
+  const root = pluginRoot();
+  const resolvedVia = [];
 
+  if (marketplaceName) resolvedVia.push("option");
+
+  // (a) dev リポジトリ（上位に marketplace.json がある場合のみ）
   if (!marketplaceName || !repo) {
-    const mpPath = findMarketplaceJson(pluginRoot());
+    const mpPath = findMarketplaceJson(root);
     const mp = mpPath ? readJson(mpPath) : null;
     if (mp) {
-      if (!marketplaceName && mp.name) marketplaceName = mp.name;
+      if (!marketplaceName && mp.name) {
+        marketplaceName = mp.name;
+        resolvedVia.push("repo-marketplace.json");
+      }
       if (!repo) {
         const entry = Array.isArray(mp.plugins) ? mp.plugins.find((p) => p && p.name === name) : null;
         repo = parseRepo(entry && entry.repository) || parseRepo(mp.repository);
       }
     }
   }
-  return { marketplaceName, repo, name };
+
+  // (b) 配布インストール: installed_plugins.json のキー `<plugin>@<marketplace>`
+  if (!marketplaceName) {
+    const mpName = resolveFromInstalledPlugins(root, name);
+    if (mpName) {
+      marketplaceName = mpName;
+      resolvedVia.push("installed_plugins.json");
+    }
+  }
+
+  // (c) 配布インストール: キャッシュのパス構造
+  if (!marketplaceName) {
+    const mpName = marketplaceFromCachePath(root, name);
+    if (mpName) {
+      marketplaceName = mpName;
+      resolvedVia.push("cache-path");
+    }
+  }
+
+  // repo を marketplace 名から補完（ローカルクローン → known_marketplaces.json）
+  if (!repo && marketplaceName) {
+    repo = repoForMarketplace(marketplaceName, name);
+    if (repo) resolvedVia.push("marketplace-registry");
+  }
+
+  return { marketplaceName, repo, name, resolvedVia };
 }
 
 // ---- リモート最新バージョンの取得（2 段フォールバック）------------------------
@@ -267,7 +384,7 @@ function runApply(marketplaceName, pluginKey, agentHome) {
 
 // ---- メイン ------------------------------------------------------------------
 try {
-  const { marketplaceName, repo, name } = resolveIdentity();
+  const { marketplaceName, repo, name, resolvedVia } = resolveIdentity();
   const installed = installedVersion();
   const agentHome = agentHomeOverride || readConfigValue("agent_home") || "";
   const pluginKey = marketplaceName ? `${name}@${marketplaceName}` : name;
@@ -282,9 +399,12 @@ try {
       ok: false,
       reason: "marketplace_unresolved",
       message:
-        "marketplace 名を特定できませんでした（marketplace.json が見つからない）。" +
+        `marketplace 名を特定できませんでした（plugin "${name}" が dev リポジトリの marketplace.json・` +
+        "installed_plugins.json・キャッシュのパス構造のいずれからも引けない）。" +
         "--marketplace <name> を指定するか、/plugin メニューから手動で更新してください。",
       installed,
+      plugin_root: pluginRoot(),
+      plugins_dir: pluginsDir(),
       manual_commands: manualCommands,
     });
   }
@@ -397,6 +517,7 @@ try {
     repo: repo || null,
     agent_home: agentHome || null,
     source,
+    resolved_via: resolvedVia,
     apply_hint: `node "\${CLAUDE_PLUGIN_ROOT}/scripts/update-check.js" --apply`,
     manual_commands: manualCommands,
   });
