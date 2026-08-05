@@ -280,8 +280,10 @@ function callClaude(cmd) {
         cmd,
         "--output-format",
         "text",
+        // light ティア（skills/workflow/references/model-tiers.md）。**エイリアスで指定する**：
+        // バージョン付き ID を直書きすると同系列の世代交代に追従しなくなる。
         "--model",
-        "claude-haiku-4-5-20251001",
+        "haiku",
         "--strict-mcp-config",
         "--mcp-config",
         '{"mcpServers":{}}',
@@ -374,6 +376,39 @@ function explainPlain(toolName, toolInput, opts) {
   const mcp = dictMcp(toolName);
   if (mcp) return { plain: mcp, tech: toolName.replace(/^mcp__[^_]+__/, "") };
 
+  // Edit / Write：エージェント自身のルールファイルを書き換えようとしたときだけ警告する
+  const cfg = dictConfigWrite(toolName, toolInput);
+  if (cfg) return cfg;
+
+  return null;
+}
+
+// エージェントの「守りの設定」そのものを書き換える操作の説明。
+// 業務上どうしても必要な場面があるため禁止（deny）にはせず、
+// 何が起きるのかを平易に伝えて利用者に判断してもらう（settings.json の ask ルールと対）。
+function dictConfigWrite(toolName, toolInput) {
+  if (!/(^|_)(Edit|Write|MultiEdit|NotebookEdit)$/.test(String(toolName))) return null;
+  const p = String((toolInput && (toolInput.file_path || toolInput.notebook_path)) || "");
+  if (!p) return null;
+  const norm = p.replace(/\\/g, "/");
+
+  if (/\/\.claude\/settings(\.local)?\.json$/.test(norm)) {
+    return {
+      plain:
+        "このエージェントの「やってよい操作／確認が必要な操作／禁止する操作」を決めている設定ファイルそのものを書き換えます。\n" +
+        "変更すると、これまで自動で止まっていた操作（機密の外部送信や削除など）が止まらなくなることがあります。\n" +
+        "設定を見直す作業を自分で頼んだ場合だけ許可し、心当たりがなければ拒否してください。",
+      tech: `${toolName} → ${p}`,
+    };
+  }
+  if (/\/\.claude\/(hooks|skill-policy)[^/]*$/.test(norm) || /\/hooks\/hooks\.json$/.test(norm)) {
+    return {
+      plain:
+        "自動で働く見張り役（フック）や、使ってよいスキルの許可リストの設定を書き換えます。\n" +
+        "変更すると、機密の検知や未許可スキルの確認が働かなくなることがあります。心当たりがなければ拒否してください。",
+      tech: `${toolName} → ${p}`,
+    };
+  }
   return null;
 }
 
@@ -401,6 +436,7 @@ module.exports = {
   classifyBash,
   dictBash,
   dictMcp,
+  dictConfigWrite,
   categoryTemplate,
   cacheKey,
   readConfigBool,

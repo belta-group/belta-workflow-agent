@@ -105,6 +105,9 @@ const CONFIG_ORDER = [
   "continue_confirm_minutes",
   "continue_confirm_tokens",
   "explain_llm_fallback",
+  "skill_gate_mode",
+  "env_guard_exceptions",
+  "mcp_allowlist",
 ];
 
 function readConfig() {
@@ -184,6 +187,19 @@ function doInit() {
     // アプリ経由）では claude -p が 401 になるため、サーキットブレーカーで 30 分に 1 回
     // までに自動抑制し、ふだんは決定的な型テンプレートで即応答する。false で完全無効化。
     explain_llm_fallback: existing.explain_llm_fallback || "true",
+    // スキル許可ゲート（hooks/skill-gate.js）。同梱スキル・導入記録のあるスキル・
+    // .claude/skill-policy.json の許可リストに無いスキルが起動されたときの扱い。
+    // ask（既定・確認ダイアログ）/ deny（ブロック）/ off（無効・監査記録のみ）。
+    skill_gate_mode: existing.skill_gate_mode || "ask",
+    // 機密ファイル読取ガード（pre-tool-use.js 役割 3）の例外サフィックス（カンマ区切り）。
+    // 既定の .env.example / .env.sample / .env.template / .env.dist に足したいものだけ書く
+    // （例: "environment.env"）。正当なデータファイルが .env を含んで誤遮断されたときの逃げ道。
+    env_guard_exceptions: existing.env_guard_exceptions || "",
+    // 許可 MCP サーバ名（カンマ区切り）。apply-governance.js が settings の
+    // allowedMcpServers を書くときの既定値になる。claude.ai Connector のサーバ名は
+    // 環境によって UUID になるため、/mcp の実名を確認してここに記録する。空なら
+    // 権威 settings.json の allowedMcpServers をそのまま使う。
+    mcp_allowlist: existing.mcp_allowlist || "",
   };
   // 余分な既存キーも保持
   for (const k of Object.keys(existing)) if (!(k in merged)) merged[k] = existing[k];

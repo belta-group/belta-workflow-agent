@@ -1,5 +1,5 @@
 {
   "name": "workflow",
   "description": "BELTA 社内向けワークフロー自動化エージェント。/workflow 起動 → 5 問オンボーディング → 発話から Notion / Slack / GitHub / Google Drive に分岐。",
-  "version": "0.7.0"
+  "version": "0.8.0"
 }

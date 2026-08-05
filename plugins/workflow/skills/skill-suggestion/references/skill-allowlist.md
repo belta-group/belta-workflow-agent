@@ -24,6 +24,13 @@
 
 allowlist 外（`source: third-party:*` ＝ `auto_installable:false`）を利用者が手動導入する判断材料。**取り消しにくい操作の一歩手前の安全ゲート**であり、迷ったら入れない。エージェントはこのチェックを案内し、未確認の項目が残るなら導入を見送るよう促す：
 
+- [ ] **安全性チェック（`skill-audit.js`）を通したか** — 目視の前に、まず機械的に洗い出す。`high` が 0 件であること（0 件でも安全の保証ではないので、以下の目視も省かない）：
+
+  ```
+  node "${CLAUDE_PLUGIN_ROOT}/scripts/skill-audit.js" --dir <スキルフォルダ>
+  ```
+
+  検出する観点: 破壊操作（`rm -rf` / `sudo` / `git push --force`）・認証情報の外部送信・難読化実行（base64 → 実行 / `eval`）・エージェント自身の設定改変・frontmatter の妥当性・OS 依存コマンド。結果は `~/.belta/audit/skills/<name>.json` に保存され、スキル許可ゲート（`hooks/skill-gate.js`）の確認ダイアログにも要約が出る。
 - [ ] **提供元が特定できるか** — owner / repo と配布元 URL が実在し、メンテされているか（リネーム・廃止に注意）。
 - [ ] **要求権限が過大でないか** — `required_permissions` が用途に対して妥当か。広域 Write・外部ネットワーク送信（`curl`/`fetch` の POST 先）が用途と釣り合わないものは見送る。
 - [ ] **SKILL.md・スクリプトを目視したか** — `rm -rf` / `sudo` / `git push` / `reset --hard` 等の破壊操作、認証情報・環境変数の外部送信、base64 等の難読化実行が無いか。

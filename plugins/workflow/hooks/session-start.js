@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 //
-// BELTA workflow plugin — 初回セットアップ自動起動 + グローバル誤有効化の警告（SessionStart）
+// BELTA workflow plugin — 初回セットアップ自動起動 + 各種検知（SessionStart）
 //
-// このフックは SessionStart で発火し、2 つの追加コンテキストを必要に応じて注入する。
+// このフックは SessionStart で発火し、7 つの追加コンテキストを必要に応じて注入する。
+// 該当しなければ無出力で終了する。(C)〜(G) の詳細は CLAUDE.md のフック節を参照。
+//
+//   (C) セッションまたぎの依頼反復検知 / (D) ハルシネーション再発検知 /
+//   (E) プラグイン更新通知 / (F) ゴール再開検知 / (G) ガバナンス設定の未適用検知
 //
 //   (A) 初回オンボーディング誘導:
 //       Claude Code には「インストール時フック」が無いため、インストール後最初の
@@ -77,6 +81,45 @@ function writeVersionState(p, version) {
   } catch {
     /* fail-open */
   }
+}
+
+// ---- (G) ガバナンス・ドリフト検知のヘルパー ----------------------------------
+// config.yaml（フラット YAML）の agent_home を読む。未設定なら空文字。
+function readAgentHome(home) {
+  let text = "";
+  try {
+    text = fs.readFileSync(path.join(home, ".belta", "config.yaml"), "utf8");
+  } catch {
+    return "";
+  }
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    const idx = line.indexOf(":");
+    if (idx < 0) continue;
+    if (line.slice(0, idx).trim() !== "agent_home") continue;
+    let val = line.slice(idx + 1).trim();
+    if (val.length >= 2 && val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1);
+    return val;
+  }
+  return "";
+}
+
+// 権威 settings にあるガバナンスキーのうち、専用フォルダに届いていないものの一覧。
+// キーの「有無」だけを見る（中身の差分は apply-governance.js --dry-run に任せる）。
+function governanceGaps(agentHome) {
+  const source = readJson(path.join(__dirname, "..", ".claude", "settings.json"));
+  if (!source) return [];
+  const local = readJson(path.join(agentHome, ".claude", "settings.local.json")) || {};
+  const gaps = [];
+  for (const key of ["sandbox", "allowedMcpServers", "model", "cleanupPeriodDays"]) {
+    if (source[key] !== undefined && local[key] === undefined) gaps.push(key);
+  }
+  const srcPerm = source.permissions || {};
+  const localPerm = local.permissions || {};
+  for (const key of ["disableBypassPermissionsMode", "disableAutoMode"]) {
+    if (srcPerm[key] !== undefined && localPerm[key] === undefined) gaps.push(`permissions.${key}`);
+  }
+  return gaps;
 }
 
 const contexts = []; // LLM へ渡す追加文脈（additionalContext。利用者画面には出ない）
@@ -261,7 +304,8 @@ try {
         //     応答に現れないことがある（実機で取りこぼしを確認）。人間向けの通知は
         //     systemMessage を正とする。
         systemMessages.push(
-          `🔔 ${headline} 生成済みダッシュボード（~/.belta/dashboard.html）等は再生成まで古いままです。/avatar や /report を再実行すると最新が反映されます。`
+          `🔔 ${headline} 生成済みダッシュボード（~/.belta/dashboard.html）等は再生成まで古いままです。/avatar や /report を再実行すると最新が反映されます。` +
+            `（今後の更新は /workflow-update でいつでも確認・適用できます）`
         );
         // (2) LLM にも文脈として渡す（応答に自然に一言添える・再実行を促す補助）。
         contexts.push(
@@ -271,6 +315,8 @@ try {
             headline,
             "",
             "この更新は利用者にも systemMessage で表示済みです。ユーザーへの応答に一言添えて構いません。生成済みの成果物（例: 育成アバターダッシュボード ~/.belta/dashboard.html）は再生成するまで古いままなので、必要なら対応するコマンド（/avatar や /report など）を再実行すると最新の内容・体裁が反映される旨も添えてください。変更点の詳細は README / docs を参照するよう案内して構いません。",
+            "",
+            "なお、この通知は『更新が適用された後』に出るものであり、『新しい版が出ている』ことは知らせない（自動更新は既知バグで機能しないため）。利用者が更新の有無を尋ねたら /workflow-update（plugin-update スキル）で確認・適用できると案内してください。",
             "",
             "ユーザーが別の用件を依頼している場合は、その用件を優先する。",
           ].join("\n")
@@ -315,6 +361,35 @@ try {
     }
   } catch {
     /* goals 無し・goal-util 不在等は黙って素通り（fail-open） */
+  }
+
+  // (G) ガバナンス・ドリフト検知:
+  //     同梱の権威 settings（sandbox / allowedMcpServers / model / cleanupPeriodDays /
+  //     permissions.disableBypassPermissionsMode）が、専用フォルダの settings.local.json に
+  //     届いていない（＝プラグイン更新でポリシーが増えたのに apply-governance.js を
+  //     再実行していない、または利用者が外した）ことを検知して知らせる。
+  //     (B) と同じく **警告のみで自動書き換えはしない**（利用者設定は勝手に触らない）。
+  try {
+    const agentHome = readAgentHome(home);
+    if (agentHome) {
+      const missing = governanceGaps(agentHome);
+      if (missing.length) {
+        contexts.push(
+          [
+            "【BELTA ガバナンス設定の未適用を検知】",
+            "",
+            `専用フォルダの設定（${path.join(agentHome, ".claude", "settings.local.json")}）に、同梱ポリシーのうち次が反映されていません: ${missing.join(" / ")}`,
+            "",
+            "これはプラグイン更新でセキュリティ設定が増えたのに適用コマンドを再実行していないか、設定が外された状態です。ユーザーへの応答の冒頭で一言知らせ、次のコマンドの実行を 1 回だけ提案してください（設定を勝手に書き換えないこと）:",
+            `  node "\${CLAUDE_PLUGIN_ROOT}/scripts/apply-governance.js" --target "${path.join(agentHome, ".claude", "settings.local.json")}"`,
+            "",
+            "allowedMcpServers を適用するときは、先に /mcp で MCP サーバの実名を確認するよう促してください（名前がずれるとその MCP が使えなくなります）。利用者が意図的に外している場合はその意思を尊重して構いません。",
+          ].join("\n")
+        );
+      }
+    }
+  } catch {
+    /* config.yaml 不在・agent_home 未設定等は黙って素通り（fail-open） */
   }
 } catch {
   // fail-open: 何が起きてもセッションを妨げない。

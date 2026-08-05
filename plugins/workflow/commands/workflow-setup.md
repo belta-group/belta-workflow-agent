@@ -4,10 +4,10 @@ model: sonnet
 ---
 
 <!--
-model: sonnet — オンボーディングは「5 問収集 + profile.md 生成」が主体の定型処理のため
-セッション既定（Opus 等）より安価なモデルに固定する。ただし Step 4（権限スクリプト実行）と
-MCP 接頭辞のトラブルシュートで一定の判断が要るため、haiku ではなく sonnet を下限とする。
-さらにコストを詰めたい場合は haiku に変更可（初回 OAuth/権限の取り回しが弱くなる点に注意）。
+model: sonnet — mid ティア。オンボーディングは「5 問収集 + profile.md 生成」が主体の定型
+処理のため、セッション既定（apex）より下位に固定する。ただし Step 4（権限スクリプト実行）と
+MCP 実名のトラブルシュートで一定の判断が要るため、light ではなく mid を下限とする。
+ティア定義は skills/workflow/references/model-tiers.md（モデル名を書く唯一の場所）。
 -->
 
 
@@ -163,6 +163,22 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/apply-permissions.js" --target "<AGENT_HOME>
 - 適用後、`Bash(rm -rf *)` が deny、書き込み系（Slack 送信・PR 作成等）が ask、読み取り系（`gh pr list` 等）や生成物の書き込み（`Write(.claude/agents/**)`・`Write(.claude/skills/**)`）が allow になることを確認する（[references/security-policies.md](../skills/workflow/references/security-policies.md) §6）。
 
 > **MCP 接頭辞の注意**: `.claude/settings.json` の MCP ルールは `mcp__claude_ai_<Service>__*` を前提にしている。`/mcp` で列挙される実名が異なる場合は、その接頭辞に合わせて settings.local.json を調整する。PII 検知フック（`hooks/pre-tool-use.js`）は接頭辞に依存しないサフィックス判定なので、書き込み系の機密遮断はこの調整に関わらず機能する。
+
+### Step 5.2. ガバナンス設定の適用（sandbox / MCP 許可リスト / 既定モデル）
+
+権限ルール（Step 5）以外のガバナンス設定を専用フォルダへ届ける。中身は **サンドボックス実行**（Bash をファイル・ネットワークの境界内で動かす）・**許可 MCP のホワイトリスト**・**既定モデル**・**会話ログ保持期間**・**bypassPermissions の封鎖**。
+
+まず `/mcp` を実行して **MCP サーバの実名**を確認する。claude.ai Connector の名前は環境によって UUID になることがあり、ホワイトリストの名前がずれると **その MCP が一切使えなくなる**（ここだけは必ず実名で合わせる）。
+
+```
+node "${CLAUDE_PLUGIN_ROOT}/scripts/apply-governance.js" --target "<AGENT_HOME>/.claude/settings.local.json" --mcp-servers "<実名1>,<実名2>,..."
+```
+
+- `--mcp-servers` を省略すると `~/.belta/config.yaml` の `mcp_allowlist` → 同梱の既定値（`claude_ai_Notion` 等）の順に使う。確認した実名は次回以降のために記録しておく：`node "${CLAUDE_PLUGIN_ROOT}/scripts/belta-init.js" set mcp_allowlist "<実名1>,<実名2>"`
+- 事前に差分だけ見たい場合は `--dry-run`。
+- **サンドボックスについて一言案内する**: 「これから Bash コマンドは仮想の個室の中で動きます。読み書きできる場所と通信先をあらかじめ決めてあるので、うっかりした事故が外に広がりません。個室で動かないコマンドは、これまでどおり確認ダイアログを経て個室の外で実行できます」。
+- **Windows ネイティブはサンドボックス非対応**（WSL2 内なら動く）。設定が入っていてもセッションは壊れず、従来どおりフック＋権限ルールで守られる旨を伝える。
+- 適用後、`/sandbox` でサンドボックスの状態（Mode / Overrides / Config）を確認できる。macOS では追加インストール不要、Linux / WSL2 では `bubblewrap` と `socat` が必要（不足時は `/sandbox` の Dependencies タブに表示される）。
 
 ### Step 5.5. marketplace 自動更新の有効化（推奨）
 

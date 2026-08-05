@@ -77,6 +77,18 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/catalog-scan.js" [--category <c>] [--departm
 - **allowlist 内**（社内 marketplace `belta-group/*` + Anthropic 公式 ＝ `auto_installable:true`）→ 自動インストール提案の対象。
 - **allowlist 外**（未審査・第三者 ＝ `auto_installable:false`）→ **自動インストールしない**。提案のみに留め、手動導入の手順と注意点（[skill-allowlist.md](references/skill-allowlist.md) の目視確認チェックリスト）を案内する。
 
+### Step 3.5: 安全性チェック（skill-audit・決定的）
+
+**allowlist 外の候補を手元に取得した場合、および導入直後は必ず**、静的スキャナで中身を機械的に洗い出す（読み取り専用・fail-open）：
+
+```
+node "${CLAUDE_PLUGIN_ROOT}/scripts/skill-audit.js" --dir <スキルフォルダ>
+```
+
+- 破壊操作 / 認証情報の外部送信 / 難読化実行 / 設定改変 / frontmatter の妥当性 / OS 依存コマンドを `high` / `medium` / `info` で返し、`~/.belta/audit/skills/<name>.json` に保存する。
+- **`high` があれば、その行を利用者に提示してから採否を確認する**（勝手に「大丈夫です」と判断しない）。用途に照らして妥当でなければ導入を見送る。
+- スキャナは**検出までで判定はしない**。通ったことは安全の保証ではない（動的にコードを取得する等は検出できない）。allowlist 内の候補でも、導入後に走らせておくと許可ゲートの確認ダイアログに結果が出て以後の判断が楽になる。
+
 ### Step 4: 提案（AskUserQuestion）
 
 allowlist 内候補について、利用者に確認する。**要求権限・提供元を必ず併記**する：
@@ -143,6 +155,8 @@ suggested / installed / rejected / uninstalled を追跡する。
 
 - キュレート済みスキルカタログ（正本）: [references/skills-catalog.json](references/skills-catalog.json)
 - カタログ照合ヘルパー（決定的・読み取り専用）: `scripts/catalog-scan.js`
+- 安全性チェック（決定的な静的スキャナ）: `scripts/skill-audit.js`
+- スキル許可ゲート（未記録スキルの起動を確認）: `hooks/skill-gate.js` ＋ `.claude/skill-policy.json`
 - 許可 marketplace / 提供元 / 既定推奨スキル一覧 / 非公式の目視確認チェックリスト: [references/skill-allowlist.md](references/skill-allowlist.md)
 - 能動起動の入口コマンド: `/skill-suggest`（`commands/skill-suggest.md`）
 - 候補探索（カタログ外フォールバック）: `find-skills` スキル

@@ -70,9 +70,16 @@ description: >
    - 必要に応じて `references/`（参照知識）・`scripts/`（補助スクリプト）を同梱する。**スクリプトを置く場合は必ず Node.js 単一実装にし、`mkdir -p` / `cp` / `ln -s` 等の OS 依存コマンドを必須経路に置かない**（プラグインのクロスプラットフォーム実装規約 `cross-platform.md` に準拠）。
    - `source_notes` に検知元の `notes/YYYY-MM-DD.md`（3 件以上）を記録する。
    - symlink/コピーは不要。専用フォルダの `.claude/skills/` に置けば、そのフォルダのセッションで自動的に発火対象になる。
-2. 索引 `~/.belta/skills/AUTHORED.md` に **fired / adopted** を記録する（後述）。
-3. **有効化確認**: 利用可能スキル一覧（または `/plugin`）に `<name>` が現れることを確認する。専用フォルダで開き直さないと現れない場合はその旨を案内する。
-4. 「`<name>` を作成しました。次回からこの専用フォルダで○○の場面でこのスキルが働きます」と返す。
+2. **自己監査（必須）**: 生成物を静的スキャナに通し、自分の作ったものを自分で検査する（読み取り専用・fail-open）：
+
+   ```
+   node "${CLAUDE_PLUGIN_ROOT}/scripts/skill-audit.js" --name <name>
+   ```
+
+   `high` が出たら**索引に記録する前に直す**（典型: 生成した `scripts/` に OS 依存コマンドや `eval` を書いてしまった / frontmatter の `description` を書き忘れた）。`medium`（OS 依存コマンド・シェルスクリプト同梱・description が短い）も `cross-platform.md` / `skill-writing.md` 違反のサインなので直す。結果は `~/.belta/audit/skills/<name>.json` に残り、スキル許可ゲート（`hooks/skill-gate.js`）の判断材料にもなる。
+3. 索引 `~/.belta/skills/AUTHORED.md` に **fired / adopted** を記録する（後述）。**この記録がスキル許可ゲートの allowset になる**ので、記録を飛ばすと次回起動時に確認ダイアログが出る。
+4. **有効化確認**: 利用可能スキル一覧（または `/plugin`）に `<name>` が現れることを確認する。専用フォルダで開き直さないと現れない場合はその旨を案内する。
+5. 「`<name>` を作成しました。次回からこの専用フォルダで○○の場面でこのスキルが働きます」と返す。
 
 ### Step 2-b: 拒否 → rejected 記録 + 冷却
 

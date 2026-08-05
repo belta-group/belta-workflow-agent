@@ -1,0 +1,46 @@
+{
+  "$comment": "BELTA workflow plugin — スキル許可リストの権威ソース（Claude Code が読む settings ではなく、hooks/skill-gate.js が読む BELTA 独自ポリシー）。skill-gate.js はここに加えて (a) 同梱スキル（plugins/workflow/skills/*/SKILL.md の name）(b) ~/.belta/skills/AUTHORED.md（skill-authoring の自作スキル）(c) ~/.belta/skills/SKILLS.md の installed 行（skill-suggestion の導入スキル）を allowset に足す。allowset 外のスキル起動は ask（既定。~/.belta/config.yaml の skill_gate_mode で ask|deny|off を切替）。設定 settings.json に混ぜないのは、スキーマ外キーの警告を避けるため。",
+  "$comment_maintenance": "Anthropic 公式・Claude Code 同梱スキルが増えたら allowedSkills に追記する（ここに無いだけで業務は止まらない＝確認ダイアログが 1 回出るだけ）。プラグイン名前空間つきスキル（<plugin>:<skill>）は allowedPrefixes で束ねる。",
+  "allowedSkills": [
+    "pdf",
+    "xlsx",
+    "pptx",
+    "docx",
+    "skill-creator",
+    "find-skills",
+    "document-writing",
+    "dataviz",
+    "artifact-design",
+    "artifact-diagramming",
+    "artifact-capabilities",
+    "claude-api",
+    "update-config",
+    "keybindings-help",
+    "simplify",
+    "fewer-permission-prompts",
+    "loop",
+    "schedule",
+    "run",
+    "init",
+    "review",
+    "security-review",
+    "web-design-guidelines",
+    "webapp-testing",
+    "brand-guidelines",
+    "canvas-design",
+    "frontend-design",
+    "theme-factory",
+    "mcp-builder",
+    "doc-coauthoring",
+    "internal-comms",
+    "obsidian-markdown"
+  ],
+  "allowedPrefixes": [
+    "anthropic-skills:",
+    "belta-review:",
+    "workflow:"
+  ],
+  "audit": {
+    "requireForNonBundled": true
+  }
+}

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// BELTA workflow plugin — PreToolUse フック（2 役割）
+// BELTA workflow plugin — PreToolUse フック（3 役割）
 //
 // 役割 1: PII / 機密検知（deny）
 //   外部送信・書き込み系のツール呼び出しの直前に発火し、ペイロードに
@@ -19,6 +19,14 @@
 //   判定不能は素通し（read 系の allow を壊さない安全側）。対象コマンドは元々
 //   settings.json の `ask`（毎回確認）なので確認回数は増えず、説明が足されるだけ。
 //
+// 役割 3: 機密ファイル読取ガード（deny）
+//   `.env` / SSH 秘密鍵 / `*.pem` / クラウド認証情報 を読み出そうとする Bash コマンドと
+//   Grep / Glob をブロックする。permissions の `Read(...)` deny は Claude Code が認識する
+//   ファイルコマンド（cat / head / tail / sed）までしか届かず、awk / xxd / source /
+//   リダイレクト / 自作スクリプト経由には効かない。判定は hooks/secret-file-util.js に
+//   委ね、「読める道具」を列挙する代わりに「参照されているファイル」を見る。
+//   `.env.example` 等のテンプレートと、正規表現リテラル（`"\.env"`）は素通し。
+//
 // Mac / Windows 両対応のためシェル非依存の Node.js で実装する
 // （Claude Code 同梱の node ランタイムで動作。grep / sed に依存しない）。
 //
@@ -27,7 +35,11 @@
 //       それ以外は無出力 exit 0（fail-open: 例外時もセッションを妨げない）。
 
 const fs = require("fs");
+const path = require("path");
+const os = require("os");
 const { buildAskReason, SUBPROCESS_GUARD } = require("./explain-util.js");
+const { findSecretFileRefs } = require("./secret-file-util.js");
+const { recordSecurityEvent } = require("./audit-log.js");
 
 // LLM フォールバック（explain-util の claude -p）から本フックが再発火しても
 // 無限再帰しないためのガード。子セッションのフックは即素通しで抜ける。
@@ -52,6 +64,7 @@ try {
 
 const toolName = String(payload.tool_name || "");
 const toolInput = payload.tool_input || {};
+const sessionId = String(payload.session_id || "");
 
 // ============================================================================
 // 役割 1 の対象判定：この呼び出しが「外部送信・書き込み系（PII 検知対象）」か
@@ -144,9 +157,51 @@ function detect(text) {
 }
 
 // ============================================================================
+// 役割 3：機密ファイル読取ガード
+// ============================================================================
+// 追加の例外サフィックス（config.yaml の env_guard_exceptions。読めなければ空）。
+function readEnvGuardExceptions() {
+  try {
+    const home = process.env.HOME || process.env.USERPROFILE || os.homedir();
+    const text = fs.readFileSync(path.join(home, ".belta", "config.yaml"), "utf8");
+    for (const rawLine of text.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line.startsWith("env_guard_exceptions")) continue;
+      const idx = line.indexOf(":");
+      if (idx < 0) continue;
+      let val = line.slice(idx + 1).trim();
+      if (val.length >= 2 && val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1);
+      return val
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+  } catch {
+    /* 未設定・読めない → 例外なし */
+  }
+  return [];
+}
+
+// 機密ファイル参照を走査する対象テキストを返す（対象外なら null）。
+//   Bash … コマンド文字列全体
+//   Grep … path / glob（pattern は検索式なのでファイルパスとして扱わない）
+//   Glob … pattern / path（Glob の pattern はパス glob そのもの）
+function resolveSecretScanText() {
+  if (/(^|_)Bash$/.test(toolName)) return String(toolInput.command || "");
+  if (/(^|_)Grep$/.test(toolName)) {
+    return [toolInput.path, toolInput.glob].filter(Boolean).map(String).join(" ");
+  }
+  if (/(^|_)Glob$/.test(toolName)) {
+    return [toolInput.pattern, toolInput.path].filter(Boolean).map(String).join(" ");
+  }
+  return null;
+}
+
+// ============================================================================
 // メイン：deny（最優先）→ ask（やさしい説明）→ 素通し
 // ============================================================================
-function emit(decision, reason) {
+function emit(decision, reason, audit) {
+  if (audit) recordSecurityEvent({ ...audit, decision, hook: "pre-tool-use", session: sessionId });
   process.stdout.write(
     JSON.stringify({
       hookSpecificOutput: {
@@ -170,13 +225,32 @@ try {
         "deny",
         `[BELTA PII 検知] 外部送信・書き込み（${target.channel}）のペイロードに機密情報が検出されたため、この操作をブロックしました。\n` +
           `検出: ${hits.join(" / ")}\n` +
-          `送信前に該当箇所を除去・マスキングするか、外部送信が不要な手段に切り替えてください。`
+          `送信前に該当箇所を除去・マスキングするか、外部送信が不要な手段に切り替えてください。`,
+        { tool: toolName, rule: "pii", labels: hits }
+      );
+    }
+  }
+
+  // 役割 3: 機密ファイル（.env / SSH 鍵 / *.pem / クラウド認証情報）の読取 → deny
+  const secretScanText = resolveSecretScanText();
+  if (secretScanText) {
+    const secretHits = findSecretFileRefs(secretScanText, readEnvGuardExceptions());
+    if (secretHits.length > 0) {
+      emit(
+        "deny",
+        `[BELTA 機密ファイル保護] パスワードや鍵が入っているファイルを読み出そうとしたため、この操作をブロックしました。\n` +
+          `対象: ${secretHits.join(" / ")}\n` +
+          `中身を見ずに済む方法（設定名だけを扱う・サンプルファイル .env.example を見る・利用者に値を入れてもらう）に切り替えてください。\n` +
+          `ファイル名を検索したいだけの場合は、パスではなく検索パターンとして指定してください（例: grep -rn "\\.env" docs/）。`,
+        { tool: toolName, rule: "secret-file", labels: secretHits }
       );
     }
   }
 
   // 役割 2: 書き込み・外部送信・確認系と判定できれば、やさしい説明つき ask
   const askReason = buildAskReason(toolName, toolInput);
+  // （役割 2 の ask は「毎回の書き込み確認」なので監査ログには残さない。
+  //   監査に残すのは deny＝実際にブロックした事象だけ。ノイズで調査価値を薄めない。）
   if (askReason) emit("ask", askReason);
 
   // どちらでもない（読み取り系・判定不能）→ 素通し。通常の permission に委ねる。
