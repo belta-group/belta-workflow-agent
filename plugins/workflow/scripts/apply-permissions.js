@@ -26,6 +26,9 @@
 //   - パスは path API で連結（区切り直書きしない）。ホームは環境変数から解決。
 //   - 冪等: 既存の同一エントリは重複追加しない。permissions 以外のキーは保持。
 //   - 破壊回避: 既存 settings を読み、配列の和集合のみ反映（既存ルールを削除しない）。
+//     唯一の例外は LEGACY_RULES（過去バージョンの本スクリプトが書いた、現行 Claude Code では
+//     機能しないルール）で、これだけは撤去する。和集合マージは削除しないため、放置すると
+//     起動時警告が永久に残るため。文字列完全一致のみを消すので利用者の手動ルールは触らない。
 
 const fs = require("fs");
 const path = require("path");
@@ -135,13 +138,39 @@ if (typeof target !== "object" || Array.isArray(target)) {
   process.exit(1);
 }
 
+// ---- 撤去対象（過去バージョンが書いた、現行では機能しないルール） --------------
+//
+// `Write(<path>)` 形式はファイル権限判定に一切マッチしない（`Edit(<path>)` が Write /
+// NotebookEdit を含む全ファイル編集ツールをカバーする）。起動時に
+// "is not matched by file permission checks" 警告が出るうえ、allow に置いた分は
+// 効かないまま毎回確認ダイアログが出る。権威ソース側は Edit(...) へ移行済みなので、
+// 過去に配送した Write(...) を利用者設定から取り除く。
+const LEGACY_RULES = {
+  allow: ["Write(.belta/**)", "Write(.claude/agents/**)", "Write(.claude/skills/**)"],
+  ask: ["Write(//**/.claude/settings.json)", "Write(//**/.claude/settings.local.json)"],
+  deny: [
+    "Write(//**/.env)",
+    "Write(//**/.env.*)",
+    "Write(//**/.ssh/**)",
+    "Write(//**/id_rsa*)",
+    "Write(//**/*.pem)",
+  ],
+};
+
 // ---- マージ（和集合・重複排除） ----------------------------------------------
 target.permissions = target.permissions || {};
 const buckets = ["allow", "ask", "deny"];
 const added = { allow: [], ask: [], deny: [] };
+const removed = { allow: [], ask: [], deny: [] };
 
 for (const bucket of buckets) {
-  const existing = Array.isArray(target.permissions[bucket]) ? target.permissions[bucket] : [];
+  const current = Array.isArray(target.permissions[bucket]) ? target.permissions[bucket] : [];
+  const legacy = new Set(LEGACY_RULES[bucket] || []);
+  const existing = current.filter((rule) => {
+    if (!legacy.has(rule)) return true;
+    removed[bucket].push(rule);
+    return false;
+  });
   const incoming = Array.isArray(source.permissions[bucket]) ? source.permissions[bucket] : [];
   const seen = new Set(existing);
   const merged = existing.slice();
@@ -156,6 +185,8 @@ for (const bucket of buckets) {
 }
 
 const totalAdded = added.allow.length + added.ask.length + added.deny.length;
+const totalRemoved = removed.allow.length + removed.ask.length + removed.deny.length;
+const totalChanged = totalAdded + totalRemoved;
 
 // ---- 出力 --------------------------------------------------------------------
 if (dryRun) {
@@ -165,12 +196,16 @@ if (dryRun) {
       console.log(`  + ${bucket}: ${added[bucket].length} 件追加予定`);
       for (const r of added[bucket]) console.log(`      ${r}`);
     }
+    if (removed[bucket].length) {
+      console.log(`  - ${bucket}: ${removed[bucket].length} 件撤去予定（現行 Claude Code で機能しない旧ルール）`);
+      for (const r of removed[bucket]) console.log(`      ${r}`);
+    }
   }
-  if (totalAdded === 0) console.log("  追加なし（既に最新）");
+  if (totalChanged === 0) console.log("  変更なし（既に最新）");
   process.exit(0);
 }
 
-if (totalAdded === 0) {
+if (totalChanged === 0) {
   console.log(`[apply-permissions] 既に適用済み（変更なし）: ${targetPath}`);
   process.exit(0);
 }
@@ -186,4 +221,5 @@ fs.renameSync(tmpPath, targetPath);
 console.log(`[apply-permissions] 適用完了: ${targetPath}`);
 for (const bucket of buckets) {
   if (added[bucket].length) console.log(`  + ${bucket}: ${added[bucket].length} 件追加`);
+  if (removed[bucket].length) console.log(`  - ${bucket}: ${removed[bucket].length} 件撤去（旧 Write(...) ルール）`);
 }

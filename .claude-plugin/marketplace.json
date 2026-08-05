@@ -11,7 +11,7 @@
       "name": "workflow",
       "source": "./plugins/workflow",
       "description": "/workflow で 5 問オンボーディング → Notion スキーマ設計・MCP 4 ツール連携・PII 検知・自動ルール化までを束ねる BELTA 業務エージェント。",
-      "version": "0.8.0",
+      "version": "0.8.1",
       "author": {
         "name": "belta-group"
       },

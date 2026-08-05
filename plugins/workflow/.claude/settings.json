@@ -1,6 +1,6 @@
 {
   "$comment": "BELTA workflow plugin — ガバナンス権威ソース。permissions（allow/ask/deny）に加えて sandbox / allowedMcpServers / model / cleanupPeriodDays もここが正。scripts/apply-permissions.js が permissions を、scripts/apply-governance.js がそれ以外のガバナンスキーを、専用フォルダの .claude/settings.local.json へマージする。permissions の precedence は deny > ask > allow で、どのルールにも合致しない操作は既定で ask。MCP サーバ名（allowedMcpServers / mcp__<server>__<tool>）は claude.ai Connector の登録名に依存し、環境によって UUID になることがある。/mcp で実名を確認し、必要なら apply-governance.js --mcp-servers か ~/.belta/config.yaml の mcp_allowlist で上書きすること（allowedMcpServers はホワイトリストなので、名前がずれると全 MCP が使えなくなる）。",
-  "$comment_env": "機密ファイル（.env / SSH 鍵 / *.pem）の読取は 3 層で塞いでいる。(1) この deny（Read ルールは Grep / Glob と、Claude Code が認識する cat / head / tail / sed にも適用される）(2) hooks/pre-tool-use.js の役割 3（awk / xxd / source / リダイレクト等、Read ルールが届かない任意サブプロセスまで包括。コマンド列挙に頼らない）(3) sandbox.credentials / filesystem.denyRead（OS レベル）。Read ルールは gitignore 記法で、先頭 // がファイルシステム全体、無印は cwd 相対。Bash の .env パターンをここで列挙し続けるのは不毛なので (2) に委ねる。なお Read deny は同じパスの Edit も塞ぐ（v2.1.208+）が Write / NotebookEdit は塞がないため、同じパターンの Edit / Write deny を明示的に併記している（読み取りだけ塞いでも、.env を書き換えて認証先をすり替える経路が残るため）。",
+  "$comment_env": "機密ファイル（.env / SSH 鍵 / *.pem）の読取は 3 層で塞いでいる。(1) この deny（Read ルールは Grep / Glob と、Claude Code が認識する cat / head / tail / sed にも適用される）(2) hooks/pre-tool-use.js の役割 3（awk / xxd / source / リダイレクト等、Read ルールが届かない任意サブプロセスまで包括。コマンド列挙に頼らない）(3) sandbox.credentials / filesystem.denyRead（OS レベル）。Read ルールは gitignore 記法で、先頭 // がファイルシステム全体、無印は cwd 相対。Bash の .env パターンをここで列挙し続けるのは不毛なので (2) に委ねる。なお Read deny は同じパスの Edit も塞ぐ（v2.1.208+）が、Write / NotebookEdit まで確実に塞ぐため同じパターンの Edit deny を明示的に併記している（読み取りだけ塞いでも、.env を書き換えて認証先をすり替える経路が残るため）。**パス付きルールは必ず Edit(...) で書く**：`Write(<path>)` 形式はファイル権限判定に一切マッチせず（Edit ルールが Write / NotebookEdit を含む全ファイル編集ツールをカバーする）、起動時に「is not matched by file permission checks」警告が出るうえ、allow に置くと効かないまま毎回確認ダイアログが出る。",
   "$comment_governance": "sandbox: 有効・ソフト運用（allowUnsandboxedCommands=true）。Windows ネイティブは sandbox 非対応のため failIfUnavailable=false で「非対応環境では従来どおり動く」ことを保証する（この設定が入っていてもセッションは壊れない）。excludedCommands は Seatbelt 下で TLS 検証が失敗する Go 製 CLI（gh 等）とブラウザ認証フロー用。disableBypassPermissionsMode は permissions のサブキーで、値は文字列 \"disable\"（任意スコープで有効）。model はティア SSOT（skills/workflow/references/model-tiers.md）の apex＝opus。frontier（fable）は Agent(model:fable) の ask ルールで事前承認を機械的に要求する。",
   "model": "opus",
   "cleanupPeriodDays": 30,
@@ -48,9 +48,9 @@
     "disableAutoMode": "disable",
     "allow": [
       "Read",
-      "Write(.belta/**)",
-      "Write(.claude/agents/**)",
-      "Write(.claude/skills/**)",
+      "Edit(.belta/**)",
+      "Edit(.claude/agents/**)",
+      "Edit(.claude/skills/**)",
       "Bash(git status:*)",
       "Bash(git log:*)",
       "Bash(git diff:*)",
@@ -107,8 +107,6 @@
       "Bash(http:*)",
       "Edit(//**/.claude/settings.json)",
       "Edit(//**/.claude/settings.local.json)",
-      "Write(//**/.claude/settings.json)",
-      "Write(//**/.claude/settings.local.json)",
       "Agent(model:fable)",
       "Agent(model:claude-fable-5)",
       "mcp__claude_ai_Slack__slack_send_message",
@@ -151,11 +149,6 @@
       "Edit(//**/.ssh/**)",
       "Edit(//**/id_rsa*)",
       "Edit(//**/*.pem)",
-      "Write(//**/.env)",
-      "Write(//**/.env.*)",
-      "Write(//**/.ssh/**)",
-      "Write(//**/id_rsa*)",
-      "Write(//**/*.pem)",
       "Bash(cat *.env)",
       "Bash(cat *.env.*)"
     ]

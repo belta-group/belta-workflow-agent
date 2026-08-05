@@ -160,7 +160,7 @@ node "${CLAUDE_PLUGIN_ROOT}/scripts/apply-permissions.js" --target "<AGENT_HOME>
 
 - `--target` で **専用フォルダのローカル設定**（プラグインを有効化したのと同じファイル）へ適用する。これで権限も「専用フォルダ限定」に揃う。
 - 事前に差分だけ見たい場合は `--dry-run` を付ける。
-- 適用後、`Bash(rm -rf *)` が deny、書き込み系（Slack 送信・PR 作成等）が ask、読み取り系（`gh pr list` 等）や生成物の書き込み（`Write(.claude/agents/**)`・`Write(.claude/skills/**)`）が allow になることを確認する（[references/security-policies.md](../skills/workflow/references/security-policies.md) §6）。
+- 適用後、`Bash(rm -rf *)` が deny、書き込み系（Slack 送信・PR 作成等）が ask、読み取り系（`gh pr list` 等）や生成物の書き込み（`Edit(.claude/agents/**)`・`Edit(.claude/skills/**)`。`Edit(...)` ルールが Write / NotebookEdit も含む全ファイル編集ツールをカバーする）が allow になることを確認する（[references/security-policies.md](../skills/workflow/references/security-policies.md) §6）。
 
 > **MCP 接頭辞の注意**: `.claude/settings.json` の MCP ルールは `mcp__claude_ai_<Service>__*` を前提にしている。`/mcp` で列挙される実名が異なる場合は、その接頭辞に合わせて settings.local.json を調整する。PII 検知フック（`hooks/pre-tool-use.js`）は接頭辞に依存しないサフィックス判定なので、書き込み系の機密遮断はこの調整に関わらず機能する。
 

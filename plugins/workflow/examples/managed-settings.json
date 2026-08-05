@@ -43,9 +43,9 @@
     "disableAutoMode": "disable",
     "allow": [
       "Read",
-      "Write(.belta/**)",
-      "Write(.claude/agents/**)",
-      "Write(.claude/skills/**)",
+      "Edit(.belta/**)",
+      "Edit(.claude/agents/**)",
+      "Edit(.claude/skills/**)",
       "Bash(git status:*)",
       "Bash(git log:*)",
       "Bash(git diff:*)",
@@ -102,8 +102,6 @@
       "Bash(http:*)",
       "Edit(//**/.claude/settings.json)",
       "Edit(//**/.claude/settings.local.json)",
-      "Write(//**/.claude/settings.json)",
-      "Write(//**/.claude/settings.local.json)",
       "Agent(model:fable)",
       "Agent(model:claude-fable-5)",
       "mcp__claude_ai_Slack__slack_send_message",
@@ -142,11 +140,6 @@
       "Edit(//**/.ssh/**)",
       "Edit(//**/id_rsa*)",
       "Edit(//**/*.pem)",
-      "Write(//**/.env)",
-      "Write(//**/.env.*)",
-      "Write(//**/.ssh/**)",
-      "Write(//**/id_rsa*)",
-      "Write(//**/*.pem)",
       "Bash(cat *.env)",
       "Bash(cat *.env.*)"
     ]
